@@ -1,0 +1,61 @@
+<svg width="240" height="660" viewBox="0 0 240 660" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Subtle line-art "change workflow" blueprint. Stroke-only, theme-aware via
+       CSS color variables so it recedes into the sidebar in both light and dark
+       mode. Bottom-weighted and bled off the edges. -->
+  <g opacity="0.9" fill="none" stroke="var(--color-border)" stroke-width="1.5"
+     stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- ===== Process gear (top-left, bleeds off left edge) ===== -->
+    <g>
+      <circle cx="34" cy="432" r="13"/>
+      <circle cx="34" cy="432" r="6"/>
+      <path d="M47 432 H52 M43.2 441.2 L46.7 444.7 M34 445 V450 M24.8 441.2 L21.3 444.7
+               M21 432 H16 M24.8 422.8 L21.3 419.3 M34 419 V414 M43.2 422.8 L46.7 419.3"/>
+    </g>
+
+    <!-- ===== Start card ===== -->
+    <rect x="58" y="372" width="120" height="50" rx="12"/>
+    <circle cx="78" cy="397" r="4"/>
+    <path d="M92 392 H160 M92 404 H140" stroke="var(--color-fade-2)" stroke-width="2.5" opacity="0.4"/>
+
+    <!-- connector + chevron down -->
+    <path d="M118 422 V452"/>
+    <path d="M113 446 L118 452 L123 446"/>
+
+    <!-- ===== Decision diamond (review) ===== -->
+    <path d="M118 452 L150 484 L118 516 L86 484 Z"/>
+
+    <!-- branches out to the two stage nodes -->
+    <path d="M86 484 H50 V548"/>
+    <path d="M45 542 L50 548 L55 542"/>
+    <path d="M150 484 H190 V548"/>
+    <path d="M185 542 L190 548 L195 542"/>
+
+    <!-- ===== Stage nodes (bleed off left / right) ===== -->
+    <rect x="16" y="548" width="66" height="42" rx="10"/>
+    <path d="M30 565 H70 M30 576 H58" stroke="var(--color-fade-2)" stroke-width="2.5" opacity="0.4"/>
+
+    <rect x="158" y="548" width="66" height="42" rx="10"/>
+    <path d="M172 565 H212 M172 576 H200" stroke="var(--color-fade-2)" stroke-width="2.5" opacity="0.4"/>
+
+    <!-- ===== Merge down to the approval ===== -->
+    <path d="M49 590 V612 H191 V590"/>
+    <path d="M120 612 V628"/>
+
+    <!-- ===== Approval check (outline, whisper of brand red) ===== -->
+    <circle cx="120" cy="646" r="18" stroke="var(--color-ni-primary)" opacity="0.45"/>
+    <path d="M111 646 l6 6 12 -13" stroke="var(--color-ni-primary)" stroke-width="2" opacity="0.45"/>
+
+    <!-- ===== Document (bottom-right, bleeds off bottom + right) ===== -->
+    <g>
+      <path d="M176 632 H224 L244 652 V700 H176 Z"/>
+      <path d="M224 632 V652 H244"/>
+      <path d="M190 664 H228 M190 676 H218" stroke="var(--color-fade-2)" stroke-width="2.5" opacity="0.4"/>
+    </g>
+
+    <!-- ===== Scattered nodes for texture ===== -->
+    <circle cx="210" cy="606" r="4"/>
+    <circle cx="22" cy="632" r="5"/>
+    <circle cx="150" cy="618" r="3" stroke="var(--color-fade-2)" opacity="0.5"/>
+  </g>
+</svg>
