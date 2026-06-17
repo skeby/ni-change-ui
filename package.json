@@ -1,6 +1,7 @@
 {
   "name": "ni-change-management-ui",
   "private": true,
+  "packageManager": "pnpm@10.33.2",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
