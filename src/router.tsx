@@ -124,20 +124,12 @@ const router = createBrowserRouter([
             lazy: lazyRoute(() => import("./pages/settings-categories")),
           },
           {
-            path: "settings/risk-rules",
-            lazy: lazyRoute(() => import("./pages/settings-risk-rules")),
-          },
-          {
-            path: "settings/approval-routing",
-            lazy: lazyRoute(() => import("./pages/settings-approval-routing")),
+            path: "settings/risk-levels",
+            lazy: lazyRoute(() => import("./pages/settings-risk-levels")),
           },
           {
             path: "settings/users",
             lazy: lazyRoute(() => import("./pages/settings-users")),
-          },
-          {
-            path: "settings/sla",
-            lazy: lazyRoute(() => import("./pages/settings-sla")),
           },
           {
             path: "settings/systems",

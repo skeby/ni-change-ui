@@ -1,5 +1,6 @@
 import React, { useState } from "react"
-import { Button, Modal, type TableProps } from "antd"
+import { Button, Modal, Input, type TableProps } from "antd"
+import { FORM } from "../static"
 import { DataTable } from "../components/ui/data-table"
 import { useAppSelector, useAppDispatch } from "../state/store"
 import {
@@ -138,18 +139,15 @@ export const SettingsTestChecklists: React.FC = () => {
 
           {/* Add new item */}
           <div className="flex gap-2">
-            <input
-              type="text"
+            <Input
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  handleAddItem()
-                }
+              onPressEnter={(e) => {
+                e.preventDefault()
+                handleAddItem()
               }}
               placeholder="Type a new checklist item..."
-              className="bg-background-light text-primary-alpha text-body-sm w-full rounded-xl border border-transparent px-4 py-3 transition-colors focus:border-primary focus:bg-white focus:outline-none"
+              className={FORM.CLASS_NAME}
             />
             <Button
               type="primary"

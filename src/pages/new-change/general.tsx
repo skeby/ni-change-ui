@@ -1,15 +1,15 @@
-import React, { useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { Input, Select, DatePicker } from "antd"
-import dayjs from "dayjs"
-import { useAppSelector } from "../../state/store"
-import FormField from "../../components/ui/form-field"
-import { FORM } from "../../static"
-import { useWizard } from "./new-change-wizard"
-import type { ChangeCategory } from "../../state/slices/changes-slice"
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Input, Select, DatePicker } from "antd";
+import dayjs from "dayjs";
+import { useAppSelector } from "../../state/store";
+import FormField from "../../components/ui/form-field";
+import { FORM } from "../../static";
+import { useWizard } from "./new-change-wizard";
+import type { ChangeCategory } from "../../state/slices/changes-slice";
 
 const generalSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -17,9 +17,9 @@ const generalSchema = z.object({
   systemAffected: z.string().min(1, "System affected is required"),
   category: z.string().min(1, "Category is required"),
   requestedTimeline: z.string().min(1, "Requested timeline is required"),
-})
+});
 
-type GeneralValues = z.infer<typeof generalSchema>
+type GeneralValues = z.infer<typeof generalSchema>;
 
 const SYSTEM_OPTIONS = [
   "NetSuite",
@@ -31,7 +31,7 @@ const SYSTEM_OPTIONS = [
   "Power BI",
   "Custom Application",
   "Other",
-]
+];
 
 const CATEGORY_OPTIONS: ChangeCategory[] = [
   "New Feature",
@@ -40,13 +40,13 @@ const CATEGORY_OPTIONS: ChangeCategory[] = [
   "Integration",
   "Security Patch",
   "AI",
-]
+];
 
 const GeneralStep: React.FC = () => {
-  const navigate = useNavigate()
-  const { formData, updateFormData } = useWizard()
-  const { currentUserId, users } = useAppSelector((state) => state.auth)
-  const currentUser = users.find((u) => u.id === currentUserId)
+  const navigate = useNavigate();
+  const { formData, updateFormData, draftId } = useWizard();
+  const { currentUserId, users } = useAppSelector((state) => state.auth);
+  const currentUser = users.find((u) => u.id === currentUserId);
 
   const { control, handleSubmit, setValue, watch } = useForm<GeneralValues>({
     resolver: zodResolver(generalSchema),
@@ -57,7 +57,7 @@ const GeneralStep: React.FC = () => {
       category: formData.category,
       requestedTimeline: formData.requestedTimeline,
     },
-  })
+  });
 
   // Auto-fill submitter info
   useEffect(() => {
@@ -65,9 +65,9 @@ const GeneralStep: React.FC = () => {
       updateFormData({
         submitterName: currentUser.name,
         submitterDepartment: currentUser.department,
-      })
+      });
     }
-  }, [currentUser])
+  }, [currentUser]);
 
   const onSubmit = (values: GeneralValues) => {
     updateFormData({
@@ -76,15 +76,15 @@ const GeneralStep: React.FC = () => {
       systemAffected: values.systemAffected,
       category: values.category as ChangeCategory,
       requestedTimeline: values.requestedTimeline,
-    })
+    });
 
     // If category is AI, go to AI request step; otherwise skip to risk
     if (values.category === "AI") {
-      navigate("/self/changes/new/ai-request")
+      navigate(`/self/changes/new/ai-request?draftId=${draftId}`);
     } else {
-      navigate("/self/changes/new/risk")
+      navigate(`/self/changes/new/risk?draftId=${draftId}`);
     }
-  }
+  };
 
   return (
     <form
@@ -128,7 +128,7 @@ const GeneralStep: React.FC = () => {
             rows={4}
             value={watch("description")}
             onChange={(e) => setValue("description", e.target.value)}
-            className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+            className={FORM.TEXTAREA_CLASS_NAME}
           />
         </FormField>
 
@@ -203,7 +203,7 @@ const GeneralStep: React.FC = () => {
         />
       </div>
     </form>
-  )
-}
+  );
+};
 
-export default GeneralStep
+export default GeneralStep;

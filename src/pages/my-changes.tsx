@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { Input, type TableProps, message } from "antd"
+import { Input, type TableProps, message, Popconfirm } from "antd"
 import { AiOutlineSearch } from "react-icons/ai"
 import { FileText } from "lucide-react"
-import { useAppSelector } from "../state/store"
+import { useAppSelector, useAppDispatch } from "../state/store"
+import { deleteChange } from "../state/slices/changes-slice"
 import type {
   ChangeRequest,
   ChangeStatus,
@@ -15,6 +16,7 @@ import { DataTable } from "../components/ui/data-table"
 import { TableFilter } from "../components/ui/table-filter"
 import { DataViewSwitcher } from "../components/ui/data-view-switcher"
 import { ChangeCard } from "../components/ui/change-card"
+import { DataTableActions } from "../components/ui/data-table-actions"
 
 const ALL_STATUSES: ChangeStatus[] = [
   "Draft",
@@ -46,12 +48,19 @@ const FILTER_KEYS = ["status", "riskLevel", "category", "system"]
 
 export const MyChanges: React.FC = () => {
   const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const { currentUserId } = useAppSelector((state) => state.auth)
   const { changes } = useAppSelector((state) => state.changes)
   const { dataView } = useAppSelector((state) => state.app)
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  const handleDeleteDraft = (id: string) => {
+    dispatch(deleteChange(id))
+    message.success("Draft deleted successfully!")
+  }
 
   // Only current user's changes
   const userChanges = useMemo(
@@ -229,6 +238,46 @@ export const MyChanges: React.FC = () => {
         </span>
       ),
     },
+    ...(fullyFilteredChanges.some((c) => ["Draft"].includes(c.status))
+      ? [
+          {
+            title: "",
+            key: "actions",
+            width: 80,
+            render: (_: any, record: ChangeRequest) => (
+              <Popconfirm
+                title="Are you sure you want to delete this change draft?"
+                open={deleteConfirmId === record.id}
+                onConfirm={(e) => {
+                  e?.stopPropagation()
+                  handleDeleteDraft(record.id)
+                  setDeleteConfirmId(null)
+                }}
+                onCancel={(e) => {
+                  e?.stopPropagation()
+                  setDeleteConfirmId(null)
+                }}
+                okText="Yes"
+                cancelText="No"
+              >
+                <DataTableActions
+                  items={
+                    record.status === "Draft"
+                      ? [
+                          {
+                            label: "Delete draft",
+                            icon: "delete",
+                            onClick: () => setDeleteConfirmId(record.id),
+                          },
+                        ]
+                      : []
+                  }
+                />
+              </Popconfirm>
+            ),
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -282,6 +331,7 @@ export const MyChanges: React.FC = () => {
                   key={change.id}
                   change={change}
                   detailBasePath="/self/changes"
+                  onDeleteDraft={handleDeleteDraft}
                 />
               ))}
             </div>
@@ -305,7 +355,13 @@ export const MyChanges: React.FC = () => {
           right={[<DataViewSwitcher key="switcher" />]}
           onRow={(record) => ({
             className: "cursor-pointer",
-            onClick: () => navigate(`/self/changes/${record.id}`),
+            onClick: () => {
+              if (record.status === "Draft") {
+                navigate(`/self/changes/new/${record.draftStep || "general"}?draftId=${record.id}`)
+              } else {
+                navigate(`/self/changes/${record.id}`)
+              }
+            },
           })}
         />
       )}

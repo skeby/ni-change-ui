@@ -1,26 +1,28 @@
-import React from "react"
-import { useNavigate } from "react-router-dom"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { Input, Button } from "antd"
-import { RotateCcw } from "lucide-react"
-import FormField from "../../components/ui/form-field"
-import { FORM } from "../../static"
-import { useWizard } from "./new-change-wizard"
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Input, Button, Select } from "antd";
+import { RotateCcw } from "lucide-react";
+import FormField from "../../components/ui/form-field";
+import { FORM } from "../../static";
+import { useWizard } from "./new-change-wizard";
+import { useAppSelector } from "../../state/store";
 
 const rollbackSchema = z.object({
   steps: z.string().min(1, "Rollback steps are required"),
   responsiblePerson: z.string().min(1, "Responsible person is required"),
   estimatedTime: z.string().min(1, "Estimated rollback time is required"),
   dependencies: z.string().optional(),
-})
+});
 
-type RollbackValues = z.infer<typeof rollbackSchema>
+type RollbackValues = z.infer<typeof rollbackSchema>;
 
 const RollbackStep: React.FC = () => {
-  const navigate = useNavigate()
-  const { formData, updateFormData } = useWizard()
+  const navigate = useNavigate();
+  const { formData, updateFormData, draftId } = useWizard();
+  const users = useAppSelector((state) => state.auth.users);
 
   const { control, handleSubmit, setValue, watch } = useForm<RollbackValues>({
     resolver: zodResolver(rollbackSchema),
@@ -30,7 +32,7 @@ const RollbackStep: React.FC = () => {
       estimatedTime: formData.rollbackPlan.estimatedTime,
       dependencies: formData.rollbackPlan.dependencies,
     },
-  })
+  });
 
   const onSubmit = (values: RollbackValues) => {
     updateFormData({
@@ -40,13 +42,13 @@ const RollbackStep: React.FC = () => {
         estimatedTime: values.estimatedTime,
         dependencies: values.dependencies || "",
       },
-    })
-    navigate("/self/changes/new/review")
-  }
+    });
+    navigate(`/self/changes/new/review?draftId=${draftId}`);
+  };
 
   const handleSkip = () => {
-    navigate("/self/changes/new/review")
-  }
+    navigate(`/self/changes/new/review?draftId=${draftId}`);
+  };
 
   return (
     <div className="space-y-4">
@@ -91,7 +93,7 @@ const RollbackStep: React.FC = () => {
               rows={5}
               value={watch("steps")}
               onChange={(e) => setValue("steps", e.target.value)}
-              className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+              className={FORM.TEXTAREA_CLASS_NAME}
             />
           </FormField>
 
@@ -102,9 +104,15 @@ const RollbackStep: React.FC = () => {
             label="Responsible Person"
             required
           >
-            <Input
-              placeholder="e.g. Adeyinka Akinsanya"
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Select responsible person..."
               className={FORM.CLASS_NAME}
+              options={users.map((u) => ({
+                label: `${u.name} (${u.department})`,
+                value: u.name,
+              }))}
             />
           </FormField>
 
@@ -133,13 +141,13 @@ const RollbackStep: React.FC = () => {
               rows={3}
               value={watch("dependencies")}
               onChange={(e) => setValue("dependencies", e.target.value)}
-              className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+              className={FORM.TEXTAREA_CLASS_NAME}
             />
           </FormField>
         </div>
       </form>
     </div>
-  )
-}
+  );
+};
 
-export default RollbackStep
+export default RollbackStep;

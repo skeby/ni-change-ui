@@ -186,7 +186,13 @@ export const SelfDashboard: React.FC = () => {
                   <div
                     key={change.id}
                     className="flex cursor-pointer flex-col justify-between gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
-                    onClick={() => navigate(`/self/changes/${change.id}`)}
+                    onClick={() => {
+                      if (change.status === "Draft") {
+                        navigate(`/self/changes/new/${change.draftStep || "general"}?draftId=${change.id}`)
+                      } else {
+                        navigate(`/self/changes/${change.id}`)
+                      }
+                    }}
                   >
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <div className="flex items-center gap-2">
@@ -279,7 +285,13 @@ export const SelfDashboard: React.FC = () => {
                   <div
                     key={change.id}
                     className="text-body-sm border-border-muted/30 flex cursor-pointer items-start gap-3 border-b pb-3 last:border-b-0 last:pb-0"
-                    onClick={() => navigate(`/self/changes/${change.id}`)}
+                    onClick={() => {
+                      if (change.status === "Draft") {
+                        navigate(`/self/changes/new/${change.draftStep || "general"}?draftId=${change.id}`)
+                      } else {
+                        navigate(`/self/changes/${change.id}`)
+                      }
+                    }}
                   >
                     <div className="bg-bg-muted text-fade border-border text-body-xs mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border font-bold">
                       {initials}

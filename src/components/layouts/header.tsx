@@ -97,25 +97,16 @@ const Header: React.FC = () => {
         subtitle:
           "Configure change request categories and default risk levels.",
       };
-    if (path === "/settings/risk-rules")
+    if (path === "/settings/risk-levels")
       return {
-        title: "Risk Rules",
-        subtitle: "Configure automatic risk assignment rules by category.",
-      };
-    if (path === "/settings/approval-routing")
-      return {
-        title: "Approval Routing",
-        subtitle: "Configure approval chains per risk level.",
+        title: "Risk Levels",
+        subtitle:
+          "Configure escalation SLAs and approval flows for each risk level.",
       };
     if (path === "/settings/users")
       return {
         title: "User Management",
         subtitle: "Manage users and their role assignments.",
-      };
-    if (path === "/settings/sla")
-      return {
-        title: "SLA Configuration",
-        subtitle: "Configure escalation thresholds and notification timing.",
       };
     if (path === "/settings/systems")
       return {

@@ -1,72 +1,70 @@
-import React, { createContext, useContext, useEffect, useState } from "react"
-import { createPortal } from "react-dom"
-import { Outlet, useNavigate, useLocation } from "react-router-dom"
-import { Steps, Button } from "antd"
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { Outlet, useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { Steps, Button } from "antd";
 import type {
   ChangeCategory,
   RiskLevel,
   AIRequestData,
   RollbackPlan,
-} from "../../state/slices/changes-slice"
+  ResolvedApprovalStage,
+  ChangeRequest,
+} from "../../state/slices/changes-slice";
+import { saveChangeDraft } from "../../state/slices/changes-slice";
+import { useAppSelector, useAppDispatch } from "../../state/store";
+import type { CategoryOption } from "../../state/slices/settings-slice";
 
 /* ── Wizard form data shape ── */
 export interface WizardFormData {
   // Step 1 — General
-  title: string
-  description: string
-  systemAffected: string
-  category: ChangeCategory | ""
-  submitterName: string
-  submitterDepartment: string
-  requestedTimeline: string
+  title: string;
+  description: string;
+  systemAffected: string;
+  category: ChangeCategory | "";
+  submitterName: string;
+  submitterDepartment: string;
+  requestedTimeline: string;
 
   // Step 2 — AI Request (conditional)
-  aiRequest: AIRequestData
+  aiRequest: AIRequestData;
 
   // Step 3 — Risk & Justification
-  autoAssignedRisk: RiskLevel
-  riskLevel: RiskLevel
-  riskOverridden: boolean
-  riskOverrideJustification: string
-  businessJustification: string
+  autoAssignedRisk: RiskLevel;
+  riskLevel: RiskLevel;
+  riskOverridden: boolean;
+  riskOverrideJustification: string;
+  businessJustification: string;
 
   // Step 4 — Rollback Plan
-  rollbackPlan: RollbackPlan
+  rollbackPlan: RollbackPlan;
 
-  // Step 5 — Review
-  selectedApprover: string
+  // Step 5 — Review (resolved approval chain for the selected risk level)
+  approvalPlan: ResolvedApprovalStage[];
 }
 
 export interface WizardContextValue {
-  formData: WizardFormData
-  setFormData: React.Dispatch<React.SetStateAction<WizardFormData>>
-  updateFormData: (partial: Partial<WizardFormData>) => void
+  formData: WizardFormData;
+  setFormData: React.Dispatch<React.SetStateAction<WizardFormData>>;
+  updateFormData: (partial: Partial<WizardFormData>) => void;
+  draftId: string;
 }
 
-const WizardContext = createContext<WizardContextValue | null>(null)
+const WizardContext = createContext<WizardContextValue | null>(null);
 
 export const useWizard = () => {
-  const ctx = useContext(WizardContext)
-  if (!ctx) throw new Error("useWizard must be used within NewChangeWizard")
-  return ctx
-}
+  const ctx = useContext(WizardContext);
+  if (!ctx) throw new Error("useWizard must be used within NewChangeWizard");
+  return ctx;
+};
 
-/* ── Helper: derive auto-assigned risk from category ── */
-const deriveRisk = (category: ChangeCategory | ""): RiskLevel => {
-  switch (category) {
-    case "Bug Fix":
-    case "Configuration Change":
-      return "Low"
-    case "New Feature":
-    case "Integration":
-    case "AI":
-      return "Medium"
-    case "Security Patch":
-      return "High"
-    default:
-      return "Low"
-  }
-}
+/* ── Helper: derive auto-assigned risk from the category's defaultRisk ── */
+const deriveRisk = (
+  category: ChangeCategory | "",
+  categories: CategoryOption[],
+): RiskLevel => {
+  if (!category) return "Low";
+  return categories.find((c) => c.name === category)?.defaultRisk ?? "Low";
+};
 
 const INITIAL_FORM_DATA: WizardFormData = {
   title: "",
@@ -110,58 +108,142 @@ const INITIAL_FORM_DATA: WizardFormData = {
     dependencies: "",
   },
 
-  selectedApprover: "",
-}
+  approvalPlan: [],
+};
 
 const NewChangeWizard: React.FC = () => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null)
+  const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
+  const categories = useAppSelector((state) => state.settings.categories);
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
 
-  const [formData, setFormData] = useState<WizardFormData>(() => {
-    const saved = localStorage.getItem("ni-change-wizard-draft")
-    if (saved) {
-      try {
-        return { ...INITIAL_FORM_DATA, ...JSON.parse(saved) }
-      } catch {
-        return INITIAL_FORM_DATA
-      }
+  const { changes } = useAppSelector((state) => state.changes);
+  const { currentUserId, users } = useAppSelector((state) => state.auth);
+  const currentUser = users.find((u) => u.id === currentUserId) || users[0];
+
+  const draftId = searchParams.get("draftId") || "";
+  const currentDraft = changes.find((c) => c.id === draftId);
+
+  const [formData, setFormData] = useState<WizardFormData>(INITIAL_FORM_DATA);
+
+  // Initialize a new draft if no draftId exists
+  useEffect(() => {
+    if (!draftId) {
+      const newDraftId = `DRAFT-${Date.now()}`;
+      const newDraft: ChangeRequest = {
+        id: newDraftId,
+        title: "",
+        description: "",
+        systemAffected: "",
+        category: "New Feature",
+        businessJustification: "",
+        requestedTimeline: "",
+        submitterId: currentUser.id,
+        submitterName: currentUser.name,
+        submitterDepartment: currentUser.department,
+        status: "Draft",
+        riskLevel: "Low",
+        riskOverridden: false,
+        autoAssignedRisk: "Low",
+        approvals: [],
+        testPlan: "",
+        testSteps: [],
+        evidence: [],
+        timeline: [],
+        comments: [],
+        isQueried: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        draftStep: "general",
+      };
+      dispatch(saveChangeDraft(newDraft));
+      navigate(`/self/changes/new/general?draftId=${newDraftId}`, { replace: true });
     }
-    return INITIAL_FORM_DATA
-  })
+  }, [draftId, dispatch, navigate, currentUser]);
 
-  // Persist draft to localStorage on every change
+  // Sync formData context with currentDraft from Redux store when loaded
   useEffect(() => {
-    localStorage.setItem("ni-change-wizard-draft", JSON.stringify(formData))
-  }, [formData])
+    if (currentDraft) {
+      setFormData({
+        title: currentDraft.title || "",
+        description: currentDraft.description || "",
+        systemAffected: currentDraft.systemAffected || "",
+        category: currentDraft.category || "",
+        submitterName: currentDraft.submitterName || "",
+        submitterDepartment: currentDraft.submitterDepartment || "",
+        requestedTimeline: currentDraft.requestedTimeline || "",
+        aiRequest: currentDraft.aiRequest || INITIAL_FORM_DATA.aiRequest,
+        autoAssignedRisk: currentDraft.autoAssignedRisk || "Low",
+        riskLevel: currentDraft.riskLevel || "Low",
+        riskOverridden: currentDraft.riskOverridden || false,
+        riskOverrideJustification: currentDraft.riskOverrideJustification || "",
+        businessJustification: currentDraft.businessJustification || "",
+        rollbackPlan: currentDraft.rollbackPlan || INITIAL_FORM_DATA.rollbackPlan,
+        approvalPlan: currentDraft.approvalPlan || [],
+      });
+    }
+  }, [currentDraft]);
 
   useEffect(() => {
-    setPortalEl(document.getElementById("layout-footer-portal"))
-  }, [])
+    setPortalEl(document.getElementById("layout-footer-portal"));
+  }, []);
 
   const updateFormData = (partial: Partial<WizardFormData>) => {
     setFormData((prev) => {
-      const next = { ...prev, ...partial }
+      const next = { ...prev, ...partial };
       // Auto-recalculate risk when category changes
       if (partial.category !== undefined) {
-        const autoRisk = deriveRisk(next.category)
-        next.autoAssignedRisk = autoRisk
+        const autoRisk = deriveRisk(next.category, categories);
+        next.autoAssignedRisk = autoRisk;
         if (!next.riskOverridden) {
-          next.riskLevel = autoRisk
+          next.riskLevel = autoRisk;
         }
       }
-      return next
-    })
-  }
+
+      // Sync back to Redux draft request
+      if (draftId && currentDraft) {
+        dispatch(
+          saveChangeDraft({
+            ...currentDraft,
+            title: next.title,
+            description: next.description,
+            systemAffected: next.systemAffected,
+            category: next.category as any,
+            businessJustification: next.businessJustification,
+            requestedTimeline: next.requestedTimeline,
+            riskLevel: next.riskLevel,
+            riskOverridden: next.riskOverridden,
+            riskOverrideJustification: next.riskOverrideJustification,
+            autoAssignedRisk: next.autoAssignedRisk,
+            aiRequest: next.category === "AI" ? next.aiRequest : undefined,
+            rollbackPlan: next.rollbackPlan,
+            approvalPlan: next.approvalPlan,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      }
+      return next;
+    });
+  };
 
   /* ── Steps definition ── */
   const steps = [
-    { key: "general", label: "General Info", path: "/self/changes/new/general" },
     {
-      key: "ai-request",
-      label: "AI Request",
-      path: "/self/changes/new/ai-request",
+      key: "general",
+      label: "General Info",
+      path: "/self/changes/new/general",
     },
+    ...(formData.category === "AI"
+      ? [
+          {
+            key: "ai-request",
+            label: "AI Request",
+            path: "/self/changes/new/ai-request",
+          },
+        ]
+      : []),
     {
       key: "risk",
       label: "Risk & Justification",
@@ -177,13 +259,42 @@ const NewChangeWizard: React.FC = () => {
       label: "Review & Submit",
       path: "/self/changes/new/review",
     },
-  ]
+  ];
 
   const currentStepIdx = steps.findIndex((s) =>
-    location.pathname.startsWith(s.path)
-  )
+    location.pathname.startsWith(s.path),
+  );
 
-  const ctxValue: WizardContextValue = { formData, setFormData, updateFormData }
+  // Auto-save current wizard step to draft metadata
+  useEffect(() => {
+    if (currentDraft && currentStepIdx >= 0) {
+      const stepKey = steps[currentStepIdx].key;
+      if (currentDraft.draftStep !== stepKey) {
+        dispatch(
+          saveChangeDraft({
+            ...currentDraft,
+            draftStep: stepKey,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      }
+    }
+  }, [currentStepIdx, currentDraft, dispatch, steps]);
+
+  const ctxValue: WizardContextValue = {
+    formData,
+    setFormData,
+    updateFormData,
+    draftId,
+  };
+
+  if (!draftId) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <WizardContext.Provider value={ctxValue}>
@@ -195,7 +306,7 @@ const NewChangeWizard: React.FC = () => {
               current={currentStepIdx}
               onChange={(current) => {
                 if (current < currentStepIdx) {
-                  navigate(steps[current].path)
+                  navigate(`${steps[current].path}?draftId=${draftId}`);
                 }
               }}
               items={steps.map((step, idx) => ({
@@ -220,7 +331,7 @@ const NewChangeWizard: React.FC = () => {
               <div className="mx-auto flex w-full justify-end gap-x-2">
                 {currentStepIdx > 0 && (
                   <Button
-                    onClick={() => navigate(steps[currentStepIdx - 1].path)}
+                    onClick={() => navigate(`${steps[currentStepIdx - 1].path}?draftId=${draftId}`)}
                     className="border-border! text-fade! h-10! cursor-pointer rounded-lg! bg-transparent px-6! leading-5! font-semibold! shadow-none!"
                   >
                     Previous
@@ -238,11 +349,11 @@ const NewChangeWizard: React.FC = () => {
                 </Button>
               </div>
             </div>,
-            portalEl
+            portalEl,
           )}
       </div>
     </WizardContext.Provider>
-  )
-}
+  );
+};
 
-export default NewChangeWizard
+export default NewChangeWizard;

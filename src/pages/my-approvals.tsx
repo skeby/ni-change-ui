@@ -1,55 +1,52 @@
-import React, { useMemo } from "react"
-import { useNavigate } from "react-router-dom"
-import { type TableProps } from "antd"
-import { ClipboardCheck } from "lucide-react"
-import { useAppSelector } from "../state/store"
-import type { ChangeRequest } from "../state/slices/changes-slice"
-import Tag from "../components/ui/tag"
-import { DataTable } from "../components/ui/data-table"
+import React, { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { type TableProps } from "antd";
+import { ClipboardCheck } from "lucide-react";
+import { useAppSelector } from "../state/store";
+import type { ChangeRequest } from "../state/slices/changes-slice";
+import Tag from "../components/ui/tag";
+import { DataTable } from "../components/ui/data-table";
 
 export const MyApprovals: React.FC = () => {
-  const navigate = useNavigate()
-  const { currentUserId, activeRoles } = useAppSelector((state) => state.auth)
-  const { changes } = useAppSelector((state) => state.changes)
+  const navigate = useNavigate();
+  const { currentUserId, activeRoles } = useAppSelector((state) => state.auth);
+  const { changes } = useAppSelector((state) => state.changes);
 
   // Filter to changes awaiting current user's approval action
   const pendingApprovals = useMemo(() => {
     return changes.filter((c) => {
       // Must be submitted or under review
-      if (c.status !== "Submitted" && c.status !== "Under Review") return false
+      if (c.status !== "Submitted" && c.status !== "Under Review") return false;
 
       // Don't show user's own requests (can't approve your own)
-      if (c.submitterId === currentUserId) return false
+      if (c.submitterId === currentUserId) return false;
 
       // User must have Approver or Admin role
-      if (
-        !activeRoles.includes("Approver") &&
-        !activeRoles.includes("Admin")
-      ) {
-        return false
+      if (!activeRoles.includes("Approver") && !activeRoles.includes("Admin")) {
+        return false;
       }
 
       // Check if user already approved/rejected this change
       const alreadyActioned = c.approvals.some(
-        (a) => a.approverId === currentUserId
-      )
-      if (alreadyActioned) return false
+        (a) => a.approverId === currentUserId,
+      );
+      if (alreadyActioned) return false;
 
-      return true
-    })
-  }, [changes, currentUserId, activeRoles])
+      return true;
+    });
+  }, [changes, currentUserId, activeRoles]);
 
   // Also include queried changes where user is the submitter (needs their response)
   const queriedForMe = useMemo(() => {
     return changes.filter(
-      (c) => c.isQueried && c.submitterId === currentUserId
-    )
-  }, [changes, currentUserId])
+      (c) => c.isQueried && c.submitterId === currentUserId,
+    );
+  }, [changes, currentUserId]);
 
   const allActionable = useMemo(
     () => [...pendingApprovals, ...queriedForMe],
-    [pendingApprovals, queriedForMe]
-  )
+    [pendingApprovals, queriedForMe],
+  );
 
   const columns: TableProps<ChangeRequest>["columns"] = [
     {
@@ -106,7 +103,10 @@ export const MyApprovals: React.FC = () => {
       key: "status",
       width: 150,
       render: (_: unknown, record: ChangeRequest) => (
-        <Tag value={record.isQueried ? "Queried" : record.status} format={false}>
+        <Tag
+          value={record.isQueried ? "Queried" : record.status}
+          format={false}
+        >
           {record.isQueried ? "Queried" : record.status}
         </Tag>
       ),
@@ -122,12 +122,12 @@ export const MyApprovals: React.FC = () => {
         </span>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
       {/* Summary bar */}
-      <div className="card flex items-center justify-between p-4 px-6">
+      {/* <div className="card flex items-center justify-between p-4 px-6">
         <div className="flex items-center gap-3">
           <div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-lg">
             <ClipboardCheck className="h-5 w-5" />
@@ -156,7 +156,7 @@ export const MyApprovals: React.FC = () => {
             </span>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Table */}
       {allActionable.length === 0 ? (
@@ -187,7 +187,7 @@ export const MyApprovals: React.FC = () => {
         />
       )}
     </div>
-  )
-}
+  );
+};
 
-export default MyApprovals
+export default MyApprovals;

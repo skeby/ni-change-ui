@@ -3,7 +3,17 @@ export { NI_CHANGE_THEME } from './theme';
 export const FORM = {
   LABEL_PROPS: { className: "text-sm text-secondary-alpha leading-5" },
   CLASS_NAME: "bg-background-light! w-full! rounded-xl! h-12!",
+  TEXTAREA_CLASS_NAME: "bg-background-light! w-full! rounded-xl!",
 };
+
+// Fixed roles available for role-based approval stages
+export const APPROVAL_ROLES = [
+  "Department Lead",
+  "IT Manager",
+  "CAB",
+  "CTO / Executive Sponsor",
+  "Security Officer",
+];
 
 export const colorMap: Record<string, string> = {
   // ── Change lifecycle statuses ──

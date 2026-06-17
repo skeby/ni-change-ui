@@ -14,25 +14,20 @@ export interface CategoryOption {
   active: boolean
 }
 
-export interface RiskRule {
+export type ApprovalStageType = "generic" | "role_based"
+
+export interface ApprovalStage {
   id: string
-  category: string
-  condition: string
-  assignedRisk: "Low" | "Medium" | "High"
+  type: ApprovalStageType
+  role?: string // required when type === "role_based"
 }
 
-export interface ApprovalRoute {
+export interface RiskLevelConfig {
   id: string
-  riskLevel: "Low" | "Medium" | "High"
-  approvers: string[]
-  description: string
-}
-
-export interface SLAConfig {
-  id: string
-  riskLevel: "Low" | "Medium" | "High"
-  maxHours: number
+  level: "Low" | "Medium" | "High"
+  maxEscalationHours: number
   escalateTo: string
+  approvalStages: ApprovalStage[]
 }
 
 export interface TestChecklistTemplate {
@@ -44,9 +39,7 @@ export interface TestChecklistTemplate {
 interface SettingsState {
   systems: SystemOption[]
   categories: CategoryOption[]
-  riskRules: RiskRule[]
-  approvalRoutes: ApprovalRoute[]
-  slaConfigs: SLAConfig[]
+  riskLevels: RiskLevelConfig[]
   testChecklists: TestChecklistTemplate[]
 }
 
@@ -70,23 +63,34 @@ const initialState: SettingsState = {
     { id: "cat-5", name: "Security Patch", defaultRisk: "High", active: true },
     { id: "cat-6", name: "AI", defaultRisk: "High", active: true },
   ],
-  riskRules: [
-    { id: "rr-1", category: "Bug Fix", condition: "UI-only changes", assignedRisk: "Low" },
-    { id: "rr-2", category: "Bug Fix", condition: "Data-affecting changes", assignedRisk: "Medium" },
-    { id: "rr-3", category: "Configuration Change", condition: "Workflow modifications", assignedRisk: "Medium" },
-    { id: "rr-4", category: "Integration", condition: "Any integration change", assignedRisk: "High" },
-    { id: "rr-5", category: "Security Patch", condition: "Access control changes", assignedRisk: "High" },
-    { id: "rr-6", category: "New Feature", condition: "Report or dashboard", assignedRisk: "Low" },
-  ],
-  approvalRoutes: [
-    { id: "ar-1", riskLevel: "Low", approvers: ["Selected by requester"], description: "Single approver — requester selects" },
-    { id: "ar-2", riskLevel: "Medium", approvers: ["Department Lead"], description: "Department lead approval" },
-    { id: "ar-3", riskLevel: "High", approvers: ["Department Lead", "IT Manager / CAB"], description: "Multi-level: department lead then IT manager" },
-  ],
-  slaConfigs: [
-    { id: "sla-1", riskLevel: "Low", maxHours: 24, escalateTo: "Department Lead" },
-    { id: "sla-2", riskLevel: "Medium", maxHours: 48, escalateTo: "IT Manager" },
-    { id: "sla-3", riskLevel: "High", maxHours: 48, escalateTo: "CAB Chair" },
+  riskLevels: [
+    {
+      id: "risk-low",
+      level: "Low",
+      maxEscalationHours: 24,
+      escalateTo: "marcus.v@company.com",
+      approvalStages: [{ id: "stg-low-1", type: "generic" }],
+    },
+    {
+      id: "risk-medium",
+      level: "Medium",
+      maxEscalationHours: 48,
+      escalateTo: "adeyinka@company.com",
+      approvalStages: [
+        { id: "stg-med-1", type: "role_based", role: "Department Lead" },
+      ],
+    },
+    {
+      id: "risk-high",
+      level: "High",
+      maxEscalationHours: 48,
+      escalateTo: "adeyinka@company.com",
+      approvalStages: [
+        { id: "stg-high-1", type: "role_based", role: "Department Lead" },
+        { id: "stg-high-2", type: "role_based", role: "IT Manager" },
+        { id: "stg-high-3", type: "role_based", role: "CAB" },
+      ],
+    },
   ],
   testChecklists: [
     { id: "tc-1", category: "New Feature", items: ["Verify feature works as described", "Test edge cases", "Check permissions/access", "Verify no regressions", "Review UI/UX consistency"] },
@@ -122,23 +126,12 @@ const settingsSlice = createSlice({
     removeCategory: (state, action: PayloadAction<string>) => {
       state.categories = state.categories.filter((c) => c.id !== action.payload)
     },
-    addRiskRule: (state, action: PayloadAction<RiskRule>) => {
-      state.riskRules.push(action.payload)
-    },
-    updateRiskRule: (state, action: PayloadAction<{ id: string; updates: Partial<RiskRule> }>) => {
-      const rule = state.riskRules.find((r) => r.id === action.payload.id)
-      if (rule) Object.assign(rule, action.payload.updates)
-    },
-    removeRiskRule: (state, action: PayloadAction<string>) => {
-      state.riskRules = state.riskRules.filter((r) => r.id !== action.payload)
-    },
-    updateApprovalRoute: (state, action: PayloadAction<{ id: string; updates: Partial<ApprovalRoute> }>) => {
-      const route = state.approvalRoutes.find((r) => r.id === action.payload.id)
-      if (route) Object.assign(route, action.payload.updates)
-    },
-    updateSLAConfig: (state, action: PayloadAction<{ id: string; updates: Partial<SLAConfig> }>) => {
-      const config = state.slaConfigs.find((c) => c.id === action.payload.id)
-      if (config) Object.assign(config, action.payload.updates)
+    updateRiskLevel: (
+      state,
+      action: PayloadAction<{ id: string; updates: Partial<RiskLevelConfig> }>
+    ) => {
+      const level = state.riskLevels.find((r) => r.id === action.payload.id)
+      if (level) Object.assign(level, action.payload.updates)
     },
     updateTestChecklist: (state, action: PayloadAction<{ id: string; items: string[] }>) => {
       const checklist = state.testChecklists.find((c) => c.id === action.payload.id)
@@ -154,11 +147,7 @@ export const {
   addCategory,
   updateCategory,
   removeCategory,
-  addRiskRule,
-  updateRiskRule,
-  removeRiskRule,
-  updateApprovalRoute,
-  updateSLAConfig,
+  updateRiskLevel,
   updateTestChecklist,
 } = settingsSlice.actions
 export default settingsSlice.reducer

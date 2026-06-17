@@ -9,8 +9,6 @@ import {
   FaCodeBranch,
   FaUsersCog,
   FaShieldAlt,
-  FaRoute,
-  FaClock,
   FaServer,
   FaListAlt,
 } from "react-icons/fa";
@@ -93,15 +91,9 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       visible: isRole(["Admin"]),
       items: [
         { name: "Categories", path: "/settings/categories", icon: FaListAlt },
-        { name: "Risk Rules", path: "/settings/risk-rules", icon: FaShieldAlt },
-        {
-          name: "Approval Routing",
-          path: "/settings/approval-routing",
-          icon: FaRoute,
-        },
-        { name: "Users", path: "/settings/users", icon: FaUsersCog },
-        { name: "SLA Config", path: "/settings/sla", icon: FaClock },
+        { name: "Risk Levels", path: "/settings/risk-levels", icon: FaShieldAlt },
         { name: "Systems", path: "/settings/systems", icon: FaServer },
+        { name: "Users", path: "/settings/users", icon: FaUsersCog },
       ],
     },
   ];

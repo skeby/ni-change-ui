@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { Button, Modal, Switch, Popconfirm, type TableProps } from "antd"
+import { Button, Modal, Switch, Popconfirm, Input, type TableProps } from "antd"
 import { DataTable } from "../components/ui/data-table"
 import { useAppSelector, useAppDispatch } from "../state/store"
 import {
@@ -193,11 +193,7 @@ export const SettingsSystems: React.FC = () => {
               label="System Name"
               labelProps={FORM.LABEL_PROPS}
             >
-              <input
-                type="text"
-                placeholder="e.g. NetSuite"
-                className="bg-background-light text-primary-alpha text-body-sm w-full rounded-xl border border-transparent px-4 py-3 transition-colors focus:border-primary focus:bg-white focus:outline-none"
-              />
+              <Input placeholder="e.g. NetSuite" className={FORM.CLASS_NAME} />
             </FormField>
 
             <FormField
@@ -206,10 +202,9 @@ export const SettingsSystems: React.FC = () => {
               label="Description"
               labelProps={FORM.LABEL_PROPS}
             >
-              <input
-                type="text"
+              <Input
                 placeholder="e.g. Financial and ERP platform"
-                className="bg-background-light text-primary-alpha text-body-sm w-full rounded-xl border border-transparent px-4 py-3 transition-colors focus:border-primary focus:bg-white focus:outline-none"
+                className={FORM.CLASS_NAME}
               />
             </FormField>
 

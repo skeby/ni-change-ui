@@ -1,6 +1,6 @@
-import React from "react"
+import React, { useEffect, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
-import { Select } from "antd"
+import { Select, message } from "antd"
 import {
   FileText,
   Cpu,
@@ -12,10 +12,15 @@ import {
   User,
 } from "lucide-react"
 import { useAppSelector, useAppDispatch } from "../../state/store"
-import { addChange } from "../../state/slices/changes-slice"
-import type { ChangeRequest, RiskLevel } from "../../state/slices/changes-slice"
+import { addChange, deleteChange } from "../../state/slices/changes-slice"
+import type {
+  ChangeRequest,
+  RiskLevel,
+  ResolvedApprovalStage,
+} from "../../state/slices/changes-slice"
 import { useWizard } from "./new-change-wizard"
 import { cn } from "../../utils/cn"
+import { FORM } from "../../static"
 
 const RISK_STYLES: Record<RiskLevel, { color: string; icon: React.ReactNode }> =
   {
@@ -36,13 +41,13 @@ const RISK_STYLES: Record<RiskLevel, { color: string; icon: React.ReactNode }> =
 const ReviewStep: React.FC = () => {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { formData, updateFormData } = useWizard()
+  const { formData, setFormData, draftId } = useWizard()
+  const { changes } = useAppSelector((state) => state.changes)
   const { currentUserId, users } = useAppSelector((state) => state.auth)
+  const riskLevels = useAppSelector((state) => state.settings.riskLevels)
   const currentUser = users.find((u) => u.id === currentUserId)
 
   const riskStyle = RISK_STYLES[formData.riskLevel] || RISK_STYLES.Low
-
-  const isLowRisk = formData.riskLevel === "Low"
 
   // Approver candidates: all users with Approver role except the current user
   const approverOptions = users
@@ -51,11 +56,65 @@ const ReviewStep: React.FC = () => {
     )
     .map((u) => ({ label: `${u.name} (${u.department})`, value: u.id }))
 
+  // Approval stages configured for this change's risk level
+  const configuredStages = useMemo(
+    () =>
+      riskLevels.find((r) => r.level === formData.riskLevel)?.approvalStages ??
+      [],
+    [riskLevels, formData.riskLevel]
+  )
+  const stagesKey = useMemo(
+    () => JSON.stringify(configuredStages),
+    [configuredStages]
+  )
+
+  // Keep the resolved approval plan in sync with the configured stages,
+  // preserving any approver already chosen for generic stages.
+  useEffect(() => {
+    setFormData((prev) => {
+      const priorById = new Map(
+        prev.approvalPlan.map((s) => [s.id, s.approverId])
+      )
+      const nextPlan: ResolvedApprovalStage[] = configuredStages.map((st) => ({
+        id: st.id,
+        type: st.type,
+        role: st.type === "role_based" ? st.role : undefined,
+        approverId:
+          st.type === "generic" ? priorById.get(st.id) : undefined,
+      }))
+      if (JSON.stringify(prev.approvalPlan) === JSON.stringify(nextPlan)) {
+        return prev
+      }
+      return { ...prev, approvalPlan: nextPlan }
+    })
+    // stagesKey captures configuredStages identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stagesKey, setFormData])
+
+  const setStageApprover = (stageId: string, approverId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      approvalPlan: prev.approvalPlan.map((s) =>
+        s.id === stageId ? { ...s, approverId } : s
+      ),
+    }))
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Every generic (requester-selected) stage must have an approver chosen
+    const missingApprover = formData.approvalPlan.some(
+      (s) => s.type === "generic" && !s.approverId
+    )
+    if (missingApprover) {
+      message.error("Select an approver for each requester-selected stage.")
+      return
+    }
+
     const now = new Date().toISOString()
-    const newId = `CR-${new Date().getFullYear()}-${String(Date.now()).slice(-4).padStart(4, "0")}`
+    const submittedCount = changes.filter((c) => !c.id.startsWith("DRAFT")).length
+    const newId = `CR-${new Date().getFullYear()}-${String(submittedCount + 1).padStart(4, "0")}`
 
     const changeRequest: ChangeRequest = {
       id: newId,
@@ -73,7 +132,9 @@ const ReviewStep: React.FC = () => {
       riskOverridden: formData.riskOverridden,
       riskOverrideJustification: formData.riskOverrideJustification || undefined,
       autoAssignedRisk: formData.autoAssignedRisk,
-      selectedApprover: isLowRisk ? formData.selectedApprover : undefined,
+      approvalPlan: formData.approvalPlan,
+      selectedApprover:
+        formData.approvalPlan.find((s) => s.type === "generic")?.approverId,
       approvals: [],
       aiRequest:
         formData.category === "AI" ? formData.aiRequest : undefined,
@@ -106,10 +167,8 @@ const ReviewStep: React.FC = () => {
       updatedAt: now,
     }
 
+    dispatch(deleteChange(draftId))
     dispatch(addChange(changeRequest))
-
-    // Clear wizard draft from localStorage
-    localStorage.removeItem("ni-change-wizard-draft")
 
     navigate("/self/changes")
   }
@@ -312,46 +371,44 @@ const ReviewStep: React.FC = () => {
           </h4>
         </div>
 
-        {isLowRisk ? (
-          <div className="space-y-3">
-            <p className="text-body-sm text-fade">
-              Low risk changes require a single approver. Select who should
-              review this request.
-            </p>
-            <div className="max-w-md">
-              <label className="text-body-sm text-primary-alpha mb-1.5 block font-bold">
-                Select Approver <span className="text-error font-bold">*</span>
-              </label>
-              <Select
-                value={formData.selectedApprover || undefined}
-                onChange={(value) => updateFormData({ selectedApprover: value })}
-                placeholder="Select an approver..."
-                className="bg-background-light! w-full! rounded-xl! h-12!"
-                options={approverOptions}
-              />
-            </div>
-          </div>
+        {formData.approvalPlan.length === 0 ? (
+          <p className="text-body-sm text-fade italic">
+            No approval stages are configured for {formData.riskLevel} risk
+            changes. An admin can configure these under Settings → Risk Levels.
+          </p>
         ) : (
           <div className="space-y-3">
             <p className="text-body-sm text-fade">
-              {formData.riskLevel === "Medium"
-                ? "Medium risk changes follow a two-tier approval chain."
-                : "High risk changes follow the full approval chain including executive sign-off."}
+              This {formData.riskLevel.toLowerCase()} risk change follows the{" "}
+              {formData.approvalPlan.length}-stage approval flow below. Pick an
+              approver for any stage where you're asked to.
             </p>
-            <div className="border-border bg-bg-muted/30 space-y-2 rounded-xl border p-4">
-              {formData.riskLevel === "Medium" && (
-                <>
-                  <ApprovalChainItem step={1} label="Department Lead" />
-                  <ApprovalChainItem step={2} label="IT Manager" />
-                </>
-              )}
-              {formData.riskLevel === "High" && (
-                <>
-                  <ApprovalChainItem step={1} label="Department Lead" />
-                  <ApprovalChainItem step={2} label="IT Manager" />
-                  <ApprovalChainItem step={3} label="CTO / Executive Sponsor" />
-                </>
-              )}
+            <div className="border-border bg-bg-muted/30 space-y-3 rounded-xl border p-4">
+              {formData.approvalPlan.map((stage, idx) => (
+                <div key={stage.id} className="flex items-center gap-3">
+                  <span className="bg-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
+                    {idx + 1}
+                  </span>
+                  {stage.type === "role_based" ? (
+                    <span className="text-body-sm text-primary-alpha font-semibold">
+                      {stage.role}
+                    </span>
+                  ) : (
+                    <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                      <span className="text-body-sm text-fade shrink-0 font-medium">
+                        Requester selects:
+                      </span>
+                      <Select
+                        value={stage.approverId || undefined}
+                        onChange={(value) => setStageApprover(stage.id, value)}
+                        placeholder="Select an approver..."
+                        className={cn(FORM.CLASS_NAME, "max-w-md")}
+                        options={approverOptions}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -373,20 +430,6 @@ const SummaryField: React.FC<{
     </span>
     <span className="text-primary-alpha text-body-sm block whitespace-pre-wrap font-medium">
       {value || <span className="text-fade italic">Not provided</span>}
-    </span>
-  </div>
-)
-
-const ApprovalChainItem: React.FC<{ step: number; label: string }> = ({
-  step,
-  label,
-}) => (
-  <div className="flex items-center gap-3">
-    <span className="bg-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
-      {step}
-    </span>
-    <span className="text-body-sm text-primary-alpha font-semibold">
-      {label}
     </span>
   </div>
 )

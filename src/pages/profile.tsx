@@ -1,20 +1,20 @@
-import React from "react"
-import { useAppSelector } from "../state/store"
-import { FaMapPin, FaPhone } from "react-icons/fa6"
-import { IoIosMail } from "react-icons/io"
+import React from "react";
+import { useAppSelector } from "../state/store";
+import { FaMapPin, FaPhone } from "react-icons/fa6";
+import { IoIosMail } from "react-icons/io";
 
 export const Profile: React.FC = () => {
   const { currentUserId, users, activeRoles } = useAppSelector(
-    (state) => state.auth
-  )
-  const currentUser = users.find((u) => u.id === currentUserId)
+    (state) => state.auth,
+  );
+  const currentUser = users.find((u) => u.id === currentUserId);
 
   if (!currentUser) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <p className="text-fade text-body-md">No user profile found.</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -38,7 +38,7 @@ export const Profile: React.FC = () => {
             </div>
 
             {/* Active Roles */}
-            <div className="flex flex-wrap justify-center gap-1.5">
+            {/* <div className="flex flex-wrap justify-center gap-1.5">
               {activeRoles.map((role) => (
                 <span
                   key={role}
@@ -47,7 +47,7 @@ export const Profile: React.FC = () => {
                   {role}
                 </span>
               ))}
-            </div>
+            </div> */}
 
             <div className="border-border-muted my-2 w-full border-t" />
 
@@ -159,7 +159,7 @@ export const Profile: React.FC = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Profile
+export default Profile;

@@ -1,22 +1,24 @@
-import React, { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { Input, Select, Switch } from "antd"
-import { ShieldCheck, ShieldAlert, Shield } from "lucide-react"
-import FormField from "../../components/ui/form-field"
-import { FORM } from "../../static"
-import { useWizard } from "./new-change-wizard"
-import type { RiskLevel } from "../../state/slices/changes-slice"
-import { cn } from "../../utils/cn"
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Input, Select, Switch } from "antd";
+import { ShieldCheck, ShieldAlert, Shield } from "lucide-react";
+import FormField from "../../components/ui/form-field";
+import { FORM, colorMap } from "../../static";
+import { useWizard } from "./new-change-wizard";
+import type { RiskLevel } from "../../state/slices/changes-slice";
+import chroma from "chroma-js";
 
 const riskSchema = z
   .object({
     riskOverridden: z.boolean(),
     riskLevel: z.string().optional(),
     riskOverrideJustification: z.string().optional(),
-    businessJustification: z.string().min(1, "Business justification is required"),
+    businessJustification: z
+      .string()
+      .min(1, "Business justification is required"),
   })
   .superRefine((data, ctx) => {
     if (data.riskOverridden) {
@@ -25,54 +27,54 @@ const riskSchema = z
           code: z.ZodIssueCode.custom,
           message: "Override risk level is required",
           path: ["riskLevel"],
-        })
+        });
       }
-      if (!data.riskOverrideJustification || !data.riskOverrideJustification.trim()) {
+      if (
+        !data.riskOverrideJustification ||
+        !data.riskOverrideJustification.trim()
+      ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Justification is required when overriding risk level",
           path: ["riskOverrideJustification"],
-        })
+        });
       }
     }
-  })
+  });
 
-type RiskValues = z.infer<typeof riskSchema>
+type RiskValues = z.infer<typeof riskSchema>;
 
 const RISK_CONFIG: Record<
   RiskLevel,
-  { color: string; bg: string; border: string; icon: React.ReactNode; description: string }
+  {
+    icon: React.ReactNode;
+    description: string;
+  }
 > = {
   Low: {
-    color: "text-emerald-700 dark:text-emerald-400",
-    bg: "bg-emerald-50 dark:bg-emerald-950/30",
-    border: "border-emerald-200 dark:border-emerald-800",
     icon: <ShieldCheck className="h-5 w-5" />,
-    description: "Low risk — minimal impact expected. Single approver workflow.",
+    description:
+      "Low risk — minimal impact expected. Single approver workflow.",
   },
   Medium: {
-    color: "text-amber-700 dark:text-amber-400",
-    bg: "bg-amber-50 dark:bg-amber-950/30",
-    border: "border-amber-200 dark:border-amber-800",
     icon: <Shield className="h-5 w-5" />,
     description:
       "Medium risk — moderate impact possible. Requires department lead and IT manager approval.",
   },
   High: {
-    color: "text-red-700 dark:text-red-400",
-    bg: "bg-red-50 dark:bg-red-950/30",
-    border: "border-red-200 dark:border-red-800",
     icon: <ShieldAlert className="h-5 w-5" />,
     description:
       "High risk — significant potential impact. Requires full approval chain including CTO sign-off.",
   },
-}
+};
 
 const RiskStep: React.FC = () => {
-  const navigate = useNavigate()
-  const { formData, updateFormData } = useWizard()
+  const navigate = useNavigate();
+  const { formData, updateFormData, draftId } = useWizard();
 
-  const [overrideEnabled, setOverrideEnabled] = useState(formData.riskOverridden)
+  const [overrideEnabled, setOverrideEnabled] = useState(
+    formData.riskOverridden,
+  );
 
   const { control, handleSubmit, setValue, watch } = useForm<RiskValues>({
     resolver: zodResolver(riskSchema),
@@ -82,13 +84,14 @@ const RiskStep: React.FC = () => {
       riskOverrideJustification: formData.riskOverrideJustification,
       businessJustification: formData.businessJustification,
     },
-  })
+  });
 
   const currentRisk: RiskLevel = overrideEnabled
-    ? ((watch("riskLevel") as RiskLevel) || formData.autoAssignedRisk)
-    : formData.autoAssignedRisk
+    ? (watch("riskLevel") as RiskLevel) || formData.autoAssignedRisk
+    : formData.autoAssignedRisk;
 
-  const riskInfo = RISK_CONFIG[currentRisk]
+  const riskInfo = RISK_CONFIG[currentRisk];
+  const riskColor = colorMap[currentRisk.toLowerCase()] || "#10b981";
 
   const onSubmit = (values: RiskValues) => {
     updateFormData({
@@ -98,9 +101,9 @@ const RiskStep: React.FC = () => {
         : formData.autoAssignedRisk,
       riskOverrideJustification: values.riskOverrideJustification || "",
       businessJustification: values.businessJustification,
-    })
-    navigate("/self/changes/new/rollback")
-  }
+    });
+    navigate(`/self/changes/new/rollback?draftId=${draftId}`);
+  };
 
   return (
     <form
@@ -111,54 +114,57 @@ const RiskStep: React.FC = () => {
       <div>
         <h3 className="card-title mb-1">Risk & Justification</h3>
         <p className="card-description">
-          Review the auto-assigned risk level based on your selected category and
-          provide business justification.
+          Review the auto-assigned risk level based on your selected category
+          and provide business justification.
         </p>
       </div>
 
-      {/* Risk Level Badge */}
+      {/* Risk Level Banner */}
       <div
-        className={cn(
-          "flex items-start gap-4 rounded-2xl border p-5",
-          riskInfo.bg,
-          riskInfo.border
-        )}
+        className="card border-border flex items-start gap-4 border border-l-4 p-5"
+        style={{ borderLeftColor: riskColor }}
       >
         <div
-          className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-            riskInfo.bg,
-            riskInfo.color
-          )}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+          style={{
+            backgroundColor: chroma(riskColor).alpha(0.1).css(),
+            color: riskColor,
+          }}
         >
           {riskInfo.icon}
         </div>
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span
-              className={cn("text-body-md font-bold", riskInfo.color)}
+              className="text-body-md font-bold"
+              style={{ color: riskColor }}
             >
               {currentRisk} Risk
             </span>
-            {!overrideEnabled && (
-              <span className="text-fade text-body-xs font-medium">
-                (auto-assigned from "{formData.category || "no category"}")
+            {!overrideEnabled ? (
+              <span className="bg-bg-muted text-fade-2 rounded-md px-1.5 py-0.5 text-[10px] font-bold">
+                Auto-assigned from "{formData.category || "no category"}"
               </span>
-            )}
-            {overrideEnabled && (
-              <span className="text-fade text-body-xs font-medium">
-                (manually overridden)
+            ) : (
+              <span
+                className="rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+                style={{
+                  backgroundColor: chroma("#f59e0b").alpha(0.1).css(),
+                  color: "#f59e0b",
+                }}
+              >
+                Manually Overridden
               </span>
             )}
           </div>
-          <p className={cn("text-body-sm mt-0.5", riskInfo.color)}>
+          <p className="text-body-sm text-fade mt-1">
             {riskInfo.description}
           </p>
         </div>
       </div>
 
-      {/* Override Toggle */}
-      <div className="border-border rounded-2xl border p-5">
+      {/* Override Toggle (Directly integrated in container) */}
+      <div className="border-t border-border pt-6">
         <div className="flex items-center justify-between">
           <div>
             <span className="text-body-sm text-primary-alpha font-bold">
@@ -171,11 +177,11 @@ const RiskStep: React.FC = () => {
           <Switch
             checked={overrideEnabled}
             onChange={(checked) => {
-              setOverrideEnabled(checked)
-              setValue("riskOverridden", checked)
+              setOverrideEnabled(checked);
+              setValue("riskOverridden", checked);
               if (!checked) {
-                setValue("riskLevel", undefined)
-                setValue("riskOverrideJustification", "")
+                setValue("riskLevel", undefined);
+                setValue("riskOverrideJustification", "");
               }
             }}
           />
@@ -215,7 +221,7 @@ const RiskStep: React.FC = () => {
                 onChange={(e) =>
                   setValue("riskOverrideJustification", e.target.value)
                 }
-                className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+                className={FORM.TEXTAREA_CLASS_NAME}
               />
             </FormField>
           </div>
@@ -234,11 +240,11 @@ const RiskStep: React.FC = () => {
           rows={5}
           value={watch("businessJustification")}
           onChange={(e) => setValue("businessJustification", e.target.value)}
-          className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+          className={FORM.TEXTAREA_CLASS_NAME}
         />
       </FormField>
     </form>
-  )
-}
+  );
+};
 
-export default RiskStep
+export default RiskStep;

@@ -44,7 +44,7 @@ const rootReducer = combineReducers({
 })
 
 const persistConfig = {
-  key: "ni-change-mgmt-root-v2",
+  key: "ni-change-mgmt-root-v3",
   storage: localStorageEngine,
   whitelist: ["auth", "changes", "settings", "app", "notifications"],
 }

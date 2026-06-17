@@ -1,7 +1,7 @@
 import React from "react"
 import { useNavigate } from "react-router-dom"
-import { Button } from "antd"
-import { FaUser, FaChevronRight, FaServer } from "react-icons/fa6"
+import { Button, Popconfirm } from "antd"
+import { FaUser, FaChevronRight, FaServer, FaTrash } from "react-icons/fa6"
 import Tag from "./tag"
 import { Utils } from "../../utils"
 import { colorMap } from "../../static"
@@ -11,17 +11,23 @@ export interface ChangeCardProps {
   change: ChangeRequest
   showSubmitterDetails?: boolean
   detailBasePath?: string
+  onDeleteDraft?: (id: string) => void
 }
 
 export const ChangeCard: React.FC<ChangeCardProps> = ({
   change,
   showSubmitterDetails = false,
   detailBasePath = "/self/changes",
+  onDeleteDraft,
 }) => {
   const navigate = useNavigate()
 
   const handleCardClick = () => {
-    navigate(`${detailBasePath}/${change.id}`)
+    if (change.status === "Draft") {
+      navigate(`/self/changes/new/${change.draftStep || "general"}?draftId=${change.id}`)
+    } else {
+      navigate(`${detailBasePath}/${change.id}`)
+    }
   }
 
   const borderColor =
@@ -112,10 +118,33 @@ export const ChangeCard: React.FC<ChangeCardProps> = ({
           </div>
         </div>
 
-        <Button
-          className="hover:bg-bg-muted text-fade-2 hover:text-primary-alpha border-border-muted flex h-8 w-8 items-center justify-center rounded-xl border bg-transparent p-1 shadow-none transition-colors"
-          icon={<FaChevronRight className="h-3 w-3" />}
-        />
+        <div className="flex gap-2">
+          {change.status === "Draft" && onDeleteDraft && (
+            <Popconfirm
+              title="Are you sure you want to delete this change draft?"
+              onConfirm={(e) => {
+                e?.stopPropagation()
+                onDeleteDraft(change.id)
+              }}
+              onCancel={(e) => e?.stopPropagation()}
+              okText="Yes"
+              cancelText="No"
+            >
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation()
+                }}
+                className="text-fade-2 flex h-8 w-8 items-center justify-center rounded-xl border border-transparent bg-transparent p-1 shadow-none transition-colors hover:border-red-100 hover:bg-red-50 hover:text-red-600"
+                title="Delete Draft"
+                icon={<FaTrash className="h-3 w-3" />}
+              />
+            </Popconfirm>
+          )}
+          <Button
+            className="hover:bg-bg-muted text-fade-2 hover:text-primary-alpha border-border-muted flex h-8 w-8 items-center justify-center rounded-xl border bg-transparent p-1 shadow-none transition-colors"
+            icon={<FaChevronRight className="h-3 w-3" />}
+          />
+        </div>
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { Button, Modal, Select, Switch, Popconfirm, type TableProps } from "antd"
+import { Button, Modal, Select, Switch, Popconfirm, Input, type TableProps } from "antd"
 import { DataTable } from "../components/ui/data-table"
 import { useAppSelector, useAppDispatch } from "../state/store"
 import {
@@ -194,11 +194,7 @@ export const SettingsCategories: React.FC = () => {
               label="Category Name"
               labelProps={FORM.LABEL_PROPS}
             >
-              <input
-                type="text"
-                placeholder="e.g. New Feature"
-                className="bg-background-light text-primary-alpha text-body-sm w-full rounded-xl border border-transparent px-4 py-3 transition-colors focus:border-primary focus:bg-white focus:outline-none"
-              />
+              <Input placeholder="e.g. New Feature" className={FORM.CLASS_NAME} />
             </FormField>
 
             <FormField

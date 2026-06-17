@@ -1,13 +1,13 @@
-import React from "react"
-import { useNavigate } from "react-router-dom"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { Input, Select, Button } from "antd"
-import { Info } from "lucide-react"
-import FormField from "../../components/ui/form-field"
-import { FORM } from "../../static"
-import { useWizard } from "./new-change-wizard"
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Input, Select, Button } from "antd";
+import { Info } from "lucide-react";
+import FormField from "../../components/ui/form-field";
+import { FORM } from "../../static";
+import { useWizard } from "./new-change-wizard";
 
 const aiRequestSchema = z.object({
   frequency: z.string().min(1, "Frequency is required"),
@@ -27,9 +27,9 @@ const aiRequestSchema = z.object({
   internalOnly: z.string().min(1, "Required"),
   bothUsers: z.string().min(1, "Required"),
   duration: z.string().min(1, "Duration is required"),
-})
+});
 
-type AIRequestValues = z.infer<typeof aiRequestSchema>
+type AIRequestValues = z.infer<typeof aiRequestSchema>;
 
 const FREQUENCY_OPTIONS = [
   "Real-time",
@@ -38,7 +38,7 @@ const FREQUENCY_OPTIONS = [
   "Weekly",
   "Monthly",
   "On-demand",
-]
+];
 
 const ASSESSMENT_OPTIONS = [
   "Not Applicable",
@@ -46,24 +46,24 @@ const ASSESSMENT_OPTIONS = [
   "Medium",
   "High",
   "Critical",
-]
+];
 
-const COMPLEXITY_OPTIONS = ["Simple", "Moderate", "Complex", "Highly Complex"]
+const COMPLEXITY_OPTIONS = ["Simple", "Moderate", "Complex", "Highly Complex"];
 
 const YES_NO_OPTIONS = [
   { label: "Yes", value: "Yes" },
   { label: "No", value: "No" },
-]
+];
 
 const DURATION_OPTIONS = [
   { label: "Short Term (< 3 months)", value: "Short Term" },
   { label: "Medium Term (3-12 months)", value: "Medium Term" },
   { label: "Long Term (> 12 months)", value: "Long Term" },
-]
+];
 
 const AIRequestStep: React.FC = () => {
-  const navigate = useNavigate()
-  const { formData, updateFormData } = useWizard()
+  const navigate = useNavigate();
+  const { formData, updateFormData, draftId } = useWizard();
 
   // If category is not AI, show skip message
   if (formData.category !== "AI") {
@@ -89,8 +89,8 @@ const AIRequestStep: React.FC = () => {
         <form
           id="step-form"
           onSubmit={(e) => {
-            e.preventDefault()
-            navigate("/self/changes/new/risk")
+            e.preventDefault();
+            navigate(`/self/changes/new/risk?draftId=${draftId}`);
           }}
         >
           <Button
@@ -102,7 +102,7 @@ const AIRequestStep: React.FC = () => {
           </Button>
         </form>
       </div>
-    )
+    );
   }
 
   const { control, handleSubmit, setValue, watch } = useForm<AIRequestValues>({
@@ -126,14 +126,14 @@ const AIRequestStep: React.FC = () => {
       bothUsers: formData.aiRequest.bothUsers,
       duration: formData.aiRequest.duration,
     },
-  })
+  });
 
   const onSubmit = (values: AIRequestValues) => {
     updateFormData({
       aiRequest: { ...values },
-    })
-    navigate("/self/changes/new/risk")
-  }
+    });
+    navigate(`/self/changes/new/risk?draftId=${draftId}`);
+  };
 
   return (
     <form
@@ -251,7 +251,7 @@ const AIRequestStep: React.FC = () => {
             rows={3}
             value={watch("problemDescription")}
             onChange={(e) => setValue("problemDescription", e.target.value)}
-            className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+            className={FORM.TEXTAREA_CLASS_NAME}
           />
         </FormField>
 
@@ -266,7 +266,7 @@ const AIRequestStep: React.FC = () => {
             rows={3}
             value={watch("currentSolution")}
             onChange={(e) => setValue("currentSolution", e.target.value)}
-            className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+            className={FORM.TEXTAREA_CLASS_NAME}
           />
         </FormField>
 
@@ -281,7 +281,7 @@ const AIRequestStep: React.FC = () => {
             rows={3}
             value={watch("successMetrics")}
             onChange={(e) => setValue("successMetrics", e.target.value)}
-            className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+            className={FORM.TEXTAREA_CLASS_NAME}
           />
         </FormField>
 
@@ -296,7 +296,7 @@ const AIRequestStep: React.FC = () => {
             rows={3}
             value={watch("simplerAlternative")}
             onChange={(e) => setValue("simplerAlternative", e.target.value)}
-            className="bg-background-light! border-border! focus:border-primary! text-primary-alpha w-full resize-none! rounded-xl! border px-4 py-3! text-sm! transition-colors focus:bg-white focus:outline-none"
+            className={FORM.TEXTAREA_CLASS_NAME}
           />
         </FormField>
       </div>
@@ -409,7 +409,7 @@ const AIRequestStep: React.FC = () => {
         </FormField>
       </div>
     </form>
-  )
-}
+  );
+};
 
-export default AIRequestStep
+export default AIRequestStep;

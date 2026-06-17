@@ -88,6 +88,15 @@ export interface ApprovalRecord {
   estimatedCost?: number
 }
 
+// Resolved approval chain captured at submission time, derived from the
+// risk-level config's approval stages.
+export interface ResolvedApprovalStage {
+  id: string
+  type: "generic" | "role_based"
+  role?: string // role label for role-based stages
+  approverId?: string // chosen by requester for generic stages
+}
+
 export interface AIRequestData {
   frequency: string
   ruleEngine: string
@@ -124,7 +133,8 @@ export interface ChangeRequest {
   riskOverridden: boolean
   riskOverrideJustification?: string
   autoAssignedRisk: RiskLevel
-  selectedApprover?: string
+  selectedApprover?: string // legacy single-approver field (older mock rows)
+  approvalPlan?: ResolvedApprovalStage[]
   approvals: ApprovalRecord[]
   aiRequest?: AIRequestData
   rollbackPlan?: RollbackPlan
@@ -138,6 +148,7 @@ export interface ChangeRequest {
   queryComment?: string
   createdAt: string
   updatedAt: string
+  draftStep?: string
 }
 
 const generateMockChanges = (): ChangeRequest[] => {
@@ -439,6 +450,17 @@ const changesSlice = createSlice({
         change.updatedAt = new Date().toISOString()
       }
     },
+    saveChangeDraft: (state, action: PayloadAction<ChangeRequest>) => {
+      const idx = state.changes.findIndex((c) => c.id === action.payload.id)
+      if (idx !== -1) {
+        state.changes[idx] = action.payload
+      } else {
+        state.changes.push(action.payload)
+      }
+    },
+    deleteChange: (state, action: PayloadAction<string>) => {
+      state.changes = state.changes.filter((c) => c.id !== action.payload)
+    },
   },
 })
 
@@ -450,5 +472,8 @@ export const {
   addApproval,
   updateTestStep,
   addEvidence,
+  saveChangeDraft,
+  deleteChange,
 } = changesSlice.actions
 export default changesSlice.reducer
+
