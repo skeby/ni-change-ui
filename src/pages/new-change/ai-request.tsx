@@ -65,6 +65,29 @@ const AIRequestStep: React.FC = () => {
   const navigate = useNavigate();
   const { formData, updateFormData, draftId } = useWizard();
 
+  const { control, handleSubmit, setValue, watch } = useForm<AIRequestValues>({
+    resolver: zodResolver(aiRequestSchema),
+    defaultValues: {
+      frequency: formData?.aiRequest?.frequency,
+      ruleEngine: formData?.aiRequest?.ruleEngine,
+      aiMl: formData?.aiRequest?.aiMl,
+      human: formData?.aiRequest?.human,
+      statisticalModeling: formData?.aiRequest?.statisticalModeling,
+      problemComplexity: formData?.aiRequest?.problemComplexity,
+      problemDescription: formData?.aiRequest?.problemDescription,
+      currentSolution: formData?.aiRequest?.currentSolution,
+      successMetrics: formData?.aiRequest?.successMetrics,
+      simplerAlternative: formData?.aiRequest?.simplerAlternative,
+      globalUse: formData?.aiRequest?.globalUse,
+      requiresStaffData: formData?.aiRequest?.requiresStaffData,
+      requiresSensitiveData: formData?.aiRequest?.requiresSensitiveData,
+      externalUsers: formData?.aiRequest?.externalUsers,
+      internalOnly: formData?.aiRequest?.internalOnly,
+      bothUsers: formData?.aiRequest?.bothUsers,
+      duration: formData?.aiRequest?.duration,
+    },
+  });
+
   // If category is not AI, show skip message
   if (formData.category !== "AI") {
     return (
@@ -104,29 +127,6 @@ const AIRequestStep: React.FC = () => {
       </div>
     );
   }
-
-  const { control, handleSubmit, setValue, watch } = useForm<AIRequestValues>({
-    resolver: zodResolver(aiRequestSchema),
-    defaultValues: {
-      frequency: formData.aiRequest.frequency,
-      ruleEngine: formData.aiRequest.ruleEngine,
-      aiMl: formData.aiRequest.aiMl,
-      human: formData.aiRequest.human,
-      statisticalModeling: formData.aiRequest.statisticalModeling,
-      problemComplexity: formData.aiRequest.problemComplexity,
-      problemDescription: formData.aiRequest.problemDescription,
-      currentSolution: formData.aiRequest.currentSolution,
-      successMetrics: formData.aiRequest.successMetrics,
-      simplerAlternative: formData.aiRequest.simplerAlternative,
-      globalUse: formData.aiRequest.globalUse,
-      requiresStaffData: formData.aiRequest.requiresStaffData,
-      requiresSensitiveData: formData.aiRequest.requiresSensitiveData,
-      externalUsers: formData.aiRequest.externalUsers,
-      internalOnly: formData.aiRequest.internalOnly,
-      bothUsers: formData.aiRequest.bothUsers,
-      duration: formData.aiRequest.duration,
-    },
-  });
 
   const onSubmit = (values: AIRequestValues) => {
     updateFormData({

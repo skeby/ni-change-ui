@@ -73,7 +73,7 @@ const mockUsers: UserProfile[] = [
 const initialState: AuthState = {
   users: mockUsers,
   currentUserId: "adeyinka@company.com",
-  activeRoles: ["Requester"],
+  activeRoles: ["Requester", "Approver", "Tester", "Admin"],
 }
 
 const authSlice = createSlice({

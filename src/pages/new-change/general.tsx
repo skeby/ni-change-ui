@@ -29,19 +29,13 @@ const GeneralStep: React.FC = () => {
   const { systems, categories } = useAppSelector((state) => state.settings);
   const currentUser = users.find((u) => u.id === currentUserId);
 
-  const systemOptions = [
-    { label: "Select system", value: "" },
-    ...systems
-      .filter((s) => s.active)
-      .map((s) => ({ label: s.name, value: s.name })),
-  ];
+  const systemOptions = systems
+    .filter((s) => s.active)
+    .map((s) => ({ label: s.name, value: s.name }));
 
-  const categoryOptions = [
-    { label: "Select category", value: "" },
-    ...categories
-      .filter((c) => c.active)
-      .map((c) => ({ label: c.name, value: c.name })),
-  ];
+  const categoryOptions = categories
+    .filter((c) => c.active)
+    .map((c) => ({ label: c.name, value: c.name }));
 
   const { control, handleSubmit, setValue, watch } = useForm<GeneralValues>({
     resolver: zodResolver(generalSchema),

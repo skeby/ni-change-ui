@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAppSelector } from "../state/store"
-import { useTheme } from "../hooks"
-import { Select } from "antd"
+import React, { useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAppSelector } from "../state/store";
+import { useTheme } from "../hooks";
+import { Select } from "antd";
 import {
   BarChart,
   Bar,
@@ -17,7 +17,7 @@ import {
   LineChart,
   Line,
   Legend,
-} from "recharts"
+} from "recharts";
 import {
   AlertCircle,
   Clock,
@@ -25,8 +25,9 @@ import {
   TrendingUp,
   ShieldCheck,
   CheckCircle,
-} from "lucide-react"
-import { Utils } from "../utils"
+} from "lucide-react";
+import { Utils } from "../utils";
+import CustomChartTooltip from "../components/ui/custom-chart-tooltip";
 
 // Status color map
 const STATUS_COLORS: Record<string, string> = {
@@ -42,7 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
   "Post-Deployment Review": "#14B8A6",
   Closed: "#475569",
   "Rolled Back": "#DC2626",
-}
+};
 
 const CATEGORY_COLORS: string[] = [
   "#A4343A",
@@ -51,17 +52,17 @@ const CATEGORY_COLORS: string[] = [
   "#10B981",
   "#9333EA",
   "#0EA5E9",
-]
+];
 
 export const Dashboard: React.FC = () => {
-  const navigate = useNavigate()
-  const { isDarkMode } = useTheme()
-  const { changes } = useAppSelector((state) => state.changes)
-  const { riskLevels } = useAppSelector((state) => state.settings)
+  const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
+  const { changes } = useAppSelector((state) => state.changes);
+  const { riskLevels } = useAppSelector((state) => state.settings);
   const sortedRiskLevels = useMemo(
     () => [...riskLevels].sort((a, b) => a.severity - b.severity),
-    [riskLevels]
-  )
+    [riskLevels],
+  );
 
   // ── Metric calculations ──────────────────────────────────────────────
 
@@ -72,94 +73,94 @@ export const Dashboard: React.FC = () => {
           c.status !== "Closed" &&
           c.status !== "Deployed" &&
           c.status !== "Rolled Back" &&
-          c.status !== "Draft"
+          c.status !== "Draft",
       ),
-    [changes]
-  )
+    [changes],
+  );
 
   const overdueApprovals = useMemo(() => {
-    const now = new Date()
+    const now = new Date();
     return changes.filter((c) => {
-      if (c.status !== "Submitted" && c.status !== "Under Review") return false
-      const submitted = new Date(c.createdAt)
+      if (c.status !== "Submitted" && c.status !== "Under Review") return false;
+      const submitted = new Date(c.createdAt);
       const daysSinceSubmit =
-        (now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24)
-      return daysSinceSubmit > 5
-    })
-  }, [changes])
+        (now.getTime() - submitted.getTime()) / (1000 * 60 * 60 * 24);
+      return daysSinceSubmit > 5;
+    });
+  }, [changes]);
 
   const deployedThisMonth = useMemo(() => {
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     return changes.filter((c) => {
-      if (c.status !== "Deployed" && c.status !== "Closed") return false
-      if (!c.deployment?.deployedAt) return false
-      return new Date(c.deployment.deployedAt) >= startOfMonth
-    })
-  }, [changes])
+      if (c.status !== "Deployed" && c.status !== "Closed") return false;
+      if (!c.deployment?.deployedAt) return false;
+      return new Date(c.deployment.deployedAt) >= startOfMonth;
+    });
+  }, [changes]);
 
   const avgDaysToDeploy = useMemo(() => {
     const deployed = changes.filter(
-      (c) => c.deployment?.deployedAt && c.createdAt
-    )
-    if (deployed.length === 0) return 0
+      (c) => c.deployment?.deployedAt && c.createdAt,
+    );
+    if (deployed.length === 0) return 0;
     const totalDays = deployed.reduce((sum, c) => {
-      const created = new Date(c.createdAt).getTime()
-      const deployedAt = new Date(c.deployment!.deployedAt).getTime()
-      return sum + (deployedAt - created) / (1000 * 60 * 60 * 24)
-    }, 0)
-    return Math.round(totalDays / deployed.length)
-  }, [changes])
+      const created = new Date(c.createdAt).getTime();
+      const deployedAt = new Date(c.deployment!.deployedAt).getTime();
+      return sum + (deployedAt - created) / (1000 * 60 * 60 * 24);
+    }, 0);
+    return Math.round(totalDays / deployed.length);
+  }, [changes]);
 
   const slaCompliance = useMemo(() => {
     const completedChanges = changes.filter(
       (c) =>
         c.status === "Deployed" ||
         c.status === "Closed" ||
-        c.status === "Rolled Back"
-    )
-    if (completedChanges.length === 0) return 100
+        c.status === "Rolled Back",
+    );
+    if (completedChanges.length === 0) return 100;
     const withinSla = completedChanges.filter((c) => {
-      if (!c.deployment?.deployedAt) return true
-      const created = new Date(c.createdAt).getTime()
-      const deployedAt = new Date(c.deployment.deployedAt).getTime()
-      const daysTaken = (deployedAt - created) / (1000 * 60 * 60 * 24)
-      return daysTaken <= 14
-    })
-    return Math.round((withinSla.length / completedChanges.length) * 100)
-  }, [changes])
+      if (!c.deployment?.deployedAt) return true;
+      const created = new Date(c.createdAt).getTime();
+      const deployedAt = new Date(c.deployment.deployedAt).getTime();
+      const daysTaken = (deployedAt - created) / (1000 * 60 * 60 * 24);
+      return daysTaken <= 14;
+    });
+    return Math.round((withinSla.length / completedChanges.length) * 100);
+  }, [changes]);
 
   // ── Chart data ───────────────────────────────────────────────────────
 
   // Trend: submitted vs deployed over last 6 months
   const trendData = useMemo(() => {
-    const now = new Date()
-    const months: { label: string; submitted: number; deployed: number }[] = []
+    const now = new Date();
+    const months: { label: string; submitted: number; deployed: number }[] = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const label = d.toLocaleString("default", {
         month: "short",
         year: "2-digit",
-      })
-      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+      });
+      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const submitted = changes.filter(
-        (c) => c.createdAt.startsWith(monthStr) && c.status !== "Draft"
-      ).length
+        (c) => c.createdAt.startsWith(monthStr) && c.status !== "Draft",
+      ).length;
       const deployed = changes.filter(
         (c) =>
           c.deployment?.deployedAt?.startsWith(monthStr) !== undefined &&
-          c.deployment?.deployedAt?.startsWith(monthStr)
-      ).length
-      months.push({ label, submitted, deployed })
+          c.deployment?.deployedAt?.startsWith(monthStr),
+      ).length;
+      months.push({ label, submitted, deployed });
     }
-    return months
-  }, [changes])
+    return months;
+  }, [changes]);
 
   // Helper for generating month options (Jan 2026 to current month)
   const monthOptions = useMemo(() => {
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth() // 0-indexed
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed
     const monthNames = [
       "January",
       "February",
@@ -173,113 +174,125 @@ export const Dashboard: React.FC = () => {
       "October",
       "November",
       "December",
-    ]
-    const options = []
+    ];
+    const options = [];
     for (let m = 0; m <= currentMonth; m++) {
-      const monthStr = `${currentYear}-${String(m + 1).padStart(2, "0")}`
+      const monthStr = `${currentYear}-${String(m + 1).padStart(2, "0")}`;
       options.push({
         value: monthStr,
         label: `${monthNames[m]} ${currentYear}`,
-      })
+      });
     }
-    return options
-  }, [])
+    return options;
+  }, []);
 
   const currentMonthValue = useMemo(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  }, [])
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>([
     currentMonthValue,
-  ])
+  ]);
 
   // Pie: by status
   const statusPieData = useMemo(() => {
-    const counts: Record<string, number> = {}
+    const counts: Record<string, number> = {};
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        const changeMonth = c.createdAt.substring(0, 7)
-        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
-          counts[c.status] = (counts[c.status] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7);
+        if (
+          selectedMonths.length === 0 ||
+          selectedMonths.includes(changeMonth)
+        ) {
+          counts[c.status] = (counts[c.status] || 0) + 1;
         }
-      })
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [changes, selectedMonths])
+      });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [changes, selectedMonths]);
 
   // Bar: by risk level
   const riskBarData = useMemo(() => {
-    const counts: Record<string, number> = {}
+    const counts: Record<string, number> = {};
     sortedRiskLevels.forEach((r) => {
-      counts[r.name] = 0
-    })
+      counts[r.name] = 0;
+    });
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        const changeMonth = c.createdAt.substring(0, 7)
-        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
-          counts[c.riskLevel] = (counts[c.riskLevel] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7);
+        if (
+          selectedMonths.length === 0 ||
+          selectedMonths.includes(changeMonth)
+        ) {
+          counts[c.riskLevel] = (counts[c.riskLevel] || 0) + 1;
         }
-      })
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [changes, sortedRiskLevels, selectedMonths])
+      });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [changes, sortedRiskLevels, selectedMonths]);
 
   // Bar: by category
   const categoryBarData = useMemo(() => {
-    const counts: Record<string, number> = {}
+    const counts: Record<string, number> = {};
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        const changeMonth = c.createdAt.substring(0, 7)
-        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
-          counts[c.category] = (counts[c.category] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7);
+        if (
+          selectedMonths.length === 0 ||
+          selectedMonths.includes(changeMonth)
+        ) {
+          counts[c.category] = (counts[c.category] || 0) + 1;
         }
-      })
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [changes, selectedMonths])
+      });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [changes, selectedMonths]);
 
   // Stacked bar: by department
   const departmentData = useMemo(() => {
-    const deptStatus: Record<string, Record<string, number>> = {}
+    const deptStatus: Record<string, Record<string, number>> = {};
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        const changeMonth = c.createdAt.substring(0, 7)
-        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
+        const changeMonth = c.createdAt.substring(0, 7);
+        if (
+          selectedMonths.length === 0 ||
+          selectedMonths.includes(changeMonth)
+        ) {
           if (!deptStatus[c.submitterDepartment]) {
-            deptStatus[c.submitterDepartment] = {}
+            deptStatus[c.submitterDepartment] = {};
           }
           deptStatus[c.submitterDepartment][c.status] =
-            (deptStatus[c.submitterDepartment][c.status] || 0) + 1
+            (deptStatus[c.submitterDepartment][c.status] || 0) + 1;
         }
-      })
+      });
     return Object.entries(deptStatus).map(([dept, statuses]) => ({
       department: dept,
       ...statuses,
-    }))
-  }, [changes, selectedMonths])
+    }));
+  }, [changes, selectedMonths]);
 
   const allStatuses = useMemo(
     () =>
       Array.from(
         new Set(
-          changes.filter((c) => c.status !== "Draft").map((c) => c.status)
-        )
+          changes.filter((c) => c.status !== "Draft").map((c) => c.status),
+        ),
       ),
-    [changes]
-  )
+    [changes],
+  );
 
   // Recent activity feed
   const recentActivity = useMemo(() => {
     const events: {
-      id: string
-      changeId: string
-      title: string
-      actor: string
-      action: string
-      timestamp: string
-    }[] = []
+      id: string;
+      changeId: string;
+      title: string;
+      actor: string;
+      action: string;
+      timestamp: string;
+    }[] = [];
     changes.forEach((c) => {
       c.timeline.forEach((ev) => {
         events.push({
@@ -289,25 +302,21 @@ export const Dashboard: React.FC = () => {
           actor: ev.actorName,
           action: ev.action,
           timestamp: ev.timestamp,
-        })
-      })
-    })
+        });
+      });
+    });
     return events
       .sort(
         (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
       )
-      .slice(0, 8)
-  }, [changes])
+      .slice(0, 8);
+  }, [changes]);
 
-  const tooltipStyle = {
-    background: isDarkMode ? "#252525" : "#FFF",
-    border: isDarkMode ? "1px solid #3d3d3d" : "1px solid #E2E8F0",
-    borderRadius: "12px",
-  }
 
-  const gridStroke = isDarkMode ? "#2d2d2d" : "#F1F5F9"
-  const axisStroke = isDarkMode ? "#6b7280" : "#94A3B8"
+
+  const gridStroke = isDarkMode ? "#2d2d2d" : "#F1F5F9";
+  const axisStroke = isDarkMode ? "#6b7280" : "#94A3B8";
 
   return (
     <div className="space-y-8">
@@ -389,7 +398,7 @@ export const Dashboard: React.FC = () => {
                 tickLine={false}
                 allowDecimals={false}
               />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip content={<CustomChartTooltip isDarkMode={isDarkMode} />} />
               <Legend />
               <Line
                 type="monotone"
@@ -427,6 +436,7 @@ export const Dashboard: React.FC = () => {
               mode="multiple"
               maxTagCount="responsive"
               placeholder="Select months"
+              showSearch={{ optionFilterProp: "label" }}
               value={selectedMonths}
               onChange={setSelectedMonths}
               style={{ minWidth: 160, maxWidth: "100%" }}
@@ -459,7 +469,14 @@ export const Dashboard: React.FC = () => {
                         />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={tooltipStyle} />
+                    <Tooltip
+                      content={
+                        <CustomChartTooltip
+                          isDarkMode={isDarkMode}
+                          getColor={(name) => STATUS_COLORS[name] || "#6b7280"}
+                        />
+                      }
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               )}
@@ -470,8 +487,7 @@ export const Dashboard: React.FC = () => {
                   <div
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{
-                      backgroundColor:
-                        STATUS_COLORS[item.name] || "#6b7280",
+                      backgroundColor: STATUS_COLORS[item.name] || "#6b7280",
                     }}
                   />
                   <span className="text-fade text-[11px] flex-1 font-medium">
@@ -499,6 +515,7 @@ export const Dashboard: React.FC = () => {
               mode="multiple"
               maxTagCount="responsive"
               placeholder="Select months"
+              showSearch={{ optionFilterProp: "label" }}
               value={selectedMonths}
               onChange={setSelectedMonths}
               style={{ minWidth: 160, maxWidth: "100%" }}
@@ -534,8 +551,27 @@ export const Dashboard: React.FC = () => {
                     tickLine={false}
                     allowDecimals={false}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40}>
+                  <Tooltip
+                    content={
+                      <CustomChartTooltip
+                        isDarkMode={isDarkMode}
+                        getColor={(name) =>
+                          Utils.resolveRiskColor(riskLevels, name)
+                        }
+                      />
+                    }
+                    cursor={{
+                      fill: isDarkMode
+                        ? "rgba(255, 255, 255, 0.06)"
+                        : "rgba(0, 0, 0, 0.03)",
+                    }}
+                  />
+                  <Bar
+                    name="Changes"
+                    dataKey="value"
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  >
                     {riskBarData.map((entry, index) => (
                       <Cell
                         key={`risk-${index}`}
@@ -562,6 +598,7 @@ export const Dashboard: React.FC = () => {
               mode="multiple"
               maxTagCount="responsive"
               placeholder="Select months"
+              showSearch={{ optionFilterProp: "label" }}
               value={selectedMonths}
               onChange={setSelectedMonths}
               style={{ minWidth: 160, maxWidth: "100%" }}
@@ -597,8 +634,27 @@ export const Dashboard: React.FC = () => {
                     tickLine={false}
                     allowDecimals={false}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip
+                    content={
+                      <CustomChartTooltip
+                        isDarkMode={isDarkMode}
+                        getColor={(name) =>
+                          CATEGORY_COLORS[
+                            categoryBarData.findIndex(
+                              (item) => item.name === name,
+                            ) % CATEGORY_COLORS.length
+                          ]
+                        }
+                      />
+                    }
+                    cursor={{
+                      fill: isDarkMode
+                        ? "rgba(255, 255, 255, 0.06)"
+                        : "rgba(0, 0, 0, 0.03)",
+                    }}
+                  />
                   <Bar
+                    name="Changes"
                     dataKey="value"
                     radius={[4, 4, 0, 0]}
                     barSize={36}
@@ -629,6 +685,7 @@ export const Dashboard: React.FC = () => {
               mode="multiple"
               maxTagCount="responsive"
               placeholder="Select months"
+              showSearch={{ optionFilterProp: "label" }}
               value={selectedMonths}
               onChange={setSelectedMonths}
               style={{ minWidth: 160, maxWidth: "100%" }}
@@ -664,7 +721,19 @@ export const Dashboard: React.FC = () => {
                     tickLine={false}
                     allowDecimals={false}
                   />
-                  <Tooltip contentStyle={tooltipStyle} />
+                  <Tooltip
+                    content={
+                      <CustomChartTooltip
+                        isDarkMode={isDarkMode}
+                        getColor={(name) => STATUS_COLORS[name] || "#6b7280"}
+                      />
+                    }
+                    cursor={{
+                      fill: isDarkMode
+                        ? "rgba(255, 255, 255, 0.06)"
+                        : "rgba(0, 0, 0, 0.03)",
+                    }}
+                  />
                   {allStatuses.map((status) => (
                     <Bar
                       key={status}
@@ -684,11 +753,21 @@ export const Dashboard: React.FC = () => {
 
       {/* Recent Activity Feed */}
       <div className="card space-y-4 p-6">
-        <div>
-          <h2 className="card-title">Recent Activity</h2>
-          <p className="card-description">
-            Timeline events across all change requests in the organization.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="card-title">Recent Activity</h2>
+            <p className="card-description">
+              Timeline events across all change requests in the organization.
+            </p>
+          </div>
+          {changes.reduce((sum, c) => sum + (c.timeline?.length || 0), 0) > 8 && (
+            <Link
+              to="/changes"
+              className="text-body-sm text-primary hover:text-primary/80 font-bold underline transition-colors"
+            >
+              See all
+            </Link>
+          )}
         </div>
         <div className="space-y-4">
           {recentActivity.map((event) => {
@@ -696,15 +775,15 @@ export const Dashboard: React.FC = () => {
               .split(" ")
               .map((n) => n[0])
               .join("")
-              .toUpperCase()
+              .toUpperCase();
 
             const formattedTime = new Date(event.timestamp).toLocaleString(
               undefined,
               {
                 dateStyle: "short",
                 timeStyle: "short",
-              }
-            )
+              },
+            );
 
             return (
               <div
@@ -719,9 +798,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                       <span
                         className="text-primary cursor-pointer font-bold hover:underline"
-                        onClick={() =>
-                          navigate(`/changes/${event.changeId}`)
-                        }
+                        onClick={() => navigate(`/changes/${event.changeId}`)}
                       >
                         {event.changeId}
                       </span>
@@ -740,7 +817,7 @@ export const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )
+            );
           })}
           {recentActivity.length === 0 && (
             <div className="text-body-sm text-fade-2 py-8 text-center">
@@ -750,17 +827,17 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // ── Inline Metric Card ───────────────────────────────────────────────────
 
 const MetricCardInline: React.FC<{
-  title: string
-  value: React.ReactNode
-  color: string
-  icon: React.FC<{ className?: string; style?: React.CSSProperties }>
-  description: string
+  title: string;
+  value: React.ReactNode;
+  color: string;
+  icon: React.FC<{ className?: string; style?: React.CSSProperties }>;
+  description: string;
 }> = ({ title, value, color, icon: Icon, description }) => {
   return (
     <div className="card flex w-full justify-between gap-x-4 p-5">
@@ -786,7 +863,7 @@ const MetricCardInline: React.FC<{
         <Icon style={{ color }} className="size-6" />
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;

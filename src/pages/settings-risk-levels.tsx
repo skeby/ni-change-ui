@@ -66,13 +66,11 @@ export const SettingsRiskLevels: React.FC = () => {
   const { riskLevels } = useAppSelector((state) => state.settings);
   const users = useAppSelector((state) => state.auth.users);
 
-  const userOptions = [
-    { label: "Select user", value: "" },
-    ...users.map((u) => ({
-      label: `${u.name} (${u.department})`,
-      value: u.id,
-    })),
-  ];
+  const userOptions = users.map((u) => ({
+    label: `${u.name} (${u.department})`,
+    value: u.id,
+  }));
+
   const userName = (id: string) => users.find((u) => u.id === id)?.name ?? id;
 
   const sortedRiskLevels = [...riskLevels].sort(

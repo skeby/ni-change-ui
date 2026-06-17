@@ -109,7 +109,6 @@ const RollbackStep: React.FC = () => {
               placeholder="Select responsible person..."
               className={FORM.CLASS_NAME}
               options={[
-                { label: "Select responsible person...", value: "" },
                 ...users.map((u) => ({
                   label: `${u.name} (${u.department})`,
                   value: u.name,

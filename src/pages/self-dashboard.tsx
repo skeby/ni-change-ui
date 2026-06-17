@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react"
-import { useNavigate, Link } from "react-router-dom"
-import { useAppSelector } from "../state/store"
-import { useTheme } from "../hooks"
+import React, { useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAppSelector } from "../state/store";
+import { useTheme } from "../hooks";
 import {
   BarChart,
   Bar,
@@ -10,36 +10,37 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from "recharts"
+} from "recharts";
 import {
   AlertCircle,
   CheckCircle,
   FileText,
   HelpCircle,
   Rocket,
-} from "lucide-react"
-import Tag from "../components/ui/tag"
-import { Utils } from "../utils"
-import { Select } from "antd"
+} from "lucide-react";
+import Tag from "../components/ui/tag";
+import { Utils } from "../utils";
+import { Select } from "antd";
+import CustomChartTooltip from "../components/ui/custom-chart-tooltip";
 
 export const SelfDashboard: React.FC = () => {
-  const navigate = useNavigate()
-  const { isDarkMode } = useTheme()
-  const { currentUserId, activeRoles } = useAppSelector((state) => state.auth)
-  const { changes } = useAppSelector((state) => state.changes)
-  const { riskLevels } = useAppSelector((state) => state.settings)
+  const navigate = useNavigate();
+  const { isDarkMode } = useTheme();
+  const { currentUserId, activeRoles } = useAppSelector((state) => state.auth);
+  const { changes } = useAppSelector((state) => state.changes);
+  const { riskLevels } = useAppSelector((state) => state.settings);
 
   // My changes
   const myChanges = useMemo(
     () => changes.filter((c) => c.submitterId === currentUserId),
-    [changes, currentUserId]
-  )
+    [changes, currentUserId],
+  );
 
   // Needs attention: changes awaiting current user's action
   const needsAttention = useMemo(() => {
     return changes.filter((c) => {
       // If queried and user is submitter, needs response
-      if (c.isQueried && c.submitterId === currentUserId) return true
+      if (c.isQueried && c.submitterId === currentUserId) return true;
 
       // If Submitted or Under Review, and user has Approver/Admin role
       if (
@@ -47,12 +48,12 @@ export const SelfDashboard: React.FC = () => {
         (activeRoles.includes("Approver") || activeRoles.includes("Admin")) &&
         c.submitterId !== currentUserId
       ) {
-        return true
+        return true;
       }
 
-      return false
-    })
-  }, [changes, currentUserId, activeRoles])
+      return false;
+    });
+  }, [changes, currentUserId, activeRoles]);
 
   // Status counts for my open changes
   const statusCounts = useMemo(() => {
@@ -62,14 +63,14 @@ export const SelfDashboard: React.FC = () => {
       "In Testing": 0,
       Deployed: 0,
       Submitted: 0,
-    }
+    };
     myChanges.forEach((c) => {
       if (c.status in counts) {
-        counts[c.status as keyof typeof counts]++
+        counts[c.status as keyof typeof counts]++;
       }
-    })
-    return counts
-  }, [myChanges])
+    });
+    return counts;
+  }, [myChanges]);
 
   // Recent submissions
   const recentSubmissions = useMemo(() => {
@@ -78,16 +79,16 @@ export const SelfDashboard: React.FC = () => {
       .sort(
         (a, b) =>
           new Date(b.updatedAt || b.createdAt).getTime() -
-          new Date(a.updatedAt || a.createdAt).getTime()
+          new Date(a.updatedAt || a.createdAt).getTime(),
       )
-      .slice(0, 5)
-  }, [myChanges])
+      .slice(0, 5);
+  }, [myChanges]);
 
   // Helper for generating month options (Jan 2026 to current month)
   const monthOptions = useMemo(() => {
-    const now = new Date()
-    const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth() // 0-indexed
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed
     const monthNames = [
       "January",
       "February",
@@ -101,46 +102,43 @@ export const SelfDashboard: React.FC = () => {
       "October",
       "November",
       "December",
-    ]
-    const options = []
+    ];
+    const options = [];
     for (let m = 0; m <= currentMonth; m++) {
-      const monthStr = `${currentYear}-${String(m + 1).padStart(2, "0")}`
+      const monthStr = `${currentYear}-${String(m + 1).padStart(2, "0")}`;
       options.push({
         value: monthStr,
         label: `${monthNames[m]} ${currentYear}`,
-      })
+      });
     }
-    return options
-  }, [])
+    return options;
+  }, []);
 
   const currentMonthValue = useMemo(() => {
-    const now = new Date()
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
-  }, [])
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>([
     currentMonthValue,
-  ])
+  ]);
 
   // Chart data: my changes by system
   const systemBarData = useMemo(() => {
-    const counts: Record<string, number> = {}
+    const counts: Record<string, number> = {};
     myChanges
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        const changeMonth = c.createdAt.substring(0, 7)
-        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
-          counts[c.systemAffected] = (counts[c.systemAffected] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7);
+        if (
+          selectedMonths.length === 0 ||
+          selectedMonths.includes(changeMonth)
+        ) {
+          counts[c.systemAffected] = (counts[c.systemAffected] || 0) + 1;
         }
-      })
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [myChanges, selectedMonths])
-
-  const tooltipStyle = {
-    background: isDarkMode ? "#252525" : "#FFF",
-    border: isDarkMode ? "1px solid #3d3d3d" : "1px solid #E2E8F0",
-    borderRadius: "12px",
-  }
+      });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [myChanges, selectedMonths]);
 
   return (
     <div className="space-y-8">
@@ -152,9 +150,7 @@ export const SelfDashboard: React.FC = () => {
           color={needsAttention.length > 0 ? "#D97706" : "#10B981"}
           icon={AlertCircle}
           description={
-            needsAttention.length > 0
-              ? "Requires your action"
-              : "All caught up"
+            needsAttention.length > 0 ? "Requires your action" : "All caught up"
           }
         />
         <MetricCardInline
@@ -165,7 +161,7 @@ export const SelfDashboard: React.FC = () => {
                 c.status !== "Closed" &&
                 c.status !== "Deployed" &&
                 c.status !== "Rolled Back" &&
-                c.status !== "Draft"
+                c.status !== "Draft",
             ).length
           }
           color="#2563EB"
@@ -181,7 +177,11 @@ export const SelfDashboard: React.FC = () => {
         />
         <MetricCardInline
           title="Deployed (Total)"
-          value={myChanges.filter((c) => c.status === "Deployed" || c.status === "Closed").length}
+          value={
+            myChanges.filter(
+              (c) => c.status === "Deployed" || c.status === "Closed",
+            ).length
+          }
           color="#10B981"
           icon={Rocket}
           description="Successfully deployed"
@@ -201,7 +201,7 @@ export const SelfDashboard: React.FC = () => {
                   Changes awaiting your approval, review, or query response.
                 </p>
               </div>
-              {needsAttention.length > 3 && (
+              {needsAttention.length > 4 && (
                 <Link
                   to="/self/approvals"
                   className="text-body-sm text-primary hover:text-primary/80 font-bold underline transition-colors"
@@ -233,9 +233,11 @@ export const SelfDashboard: React.FC = () => {
                     className="flex cursor-pointer flex-col justify-between gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center"
                     onClick={() => {
                       if (change.status === "Draft") {
-                        navigate(`/self/changes/new/${change.draftStep || "general"}?draftId=${change.id}`)
+                        navigate(
+                          `/self/changes/new/${change.draftStep || "general"}?draftId=${change.id}`,
+                        );
                       } else {
-                        navigate(`/self/changes/${change.id}`)
+                        navigate(`/self/changes/${change.id}`);
                       }
                     }}
                   >
@@ -278,7 +280,7 @@ export const SelfDashboard: React.FC = () => {
                             style={{
                               color: Utils.resolveRiskColor(
                                 riskLevels,
-                                change.riskLevel
+                                change.riskLevel,
                               ),
                             }}
                           >
@@ -302,12 +304,14 @@ export const SelfDashboard: React.FC = () => {
                   Your latest change request activity.
                 </p>
               </div>
-              <Link
-                to="/self/changes"
-                className="text-body-sm text-primary hover:text-primary/80 font-bold underline transition-colors"
-              >
-                View all
-              </Link>
+              {myChanges.filter((c) => c.status !== "Draft").length > 5 && (
+                <Link
+                  to="/self/changes"
+                  className="text-body-sm text-primary hover:text-primary/80 font-bold underline transition-colors"
+                >
+                  See all
+                </Link>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -316,14 +320,14 @@ export const SelfDashboard: React.FC = () => {
                   .split(" ")
                   .map((n) => n[0])
                   .join("")
-                  .toUpperCase()
+                  .toUpperCase();
 
                 const formattedDate = new Date(
-                  change.updatedAt || change.createdAt
+                  change.updatedAt || change.createdAt,
                 ).toLocaleString(undefined, {
                   dateStyle: "short",
                   timeStyle: "short",
-                })
+                });
 
                 return (
                   <div
@@ -331,9 +335,11 @@ export const SelfDashboard: React.FC = () => {
                     className="text-body-sm border-border-muted/30 flex cursor-pointer items-start gap-3 border-b pb-3 last:border-b-0 last:pb-0"
                     onClick={() => {
                       if (change.status === "Draft") {
-                        navigate(`/self/changes/new/${change.draftStep || "general"}?draftId=${change.id}`)
+                        navigate(
+                          `/self/changes/new/${change.draftStep || "general"}?draftId=${change.id}`,
+                        );
                       } else {
-                        navigate(`/self/changes/${change.id}`)
+                        navigate(`/self/changes/${change.id}`);
                       }
                     }}
                   >
@@ -366,7 +372,7 @@ export const SelfDashboard: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                )
+                );
               })}
               {recentSubmissions.length === 0 && (
                 <div className="text-body-sm text-fade-2 py-8 text-center">
@@ -449,6 +455,7 @@ export const SelfDashboard: React.FC = () => {
                 mode="multiple"
                 maxTagCount="responsive"
                 placeholder="Select months"
+                showSearch={{ optionFilterProp: "label" }}
                 value={selectedMonths}
                 onChange={setSelectedMonths}
                 style={{ minWidth: 160, maxWidth: "100%" }}
@@ -484,7 +491,14 @@ export const SelfDashboard: React.FC = () => {
                       tickLine={false}
                       allowDecimals={false}
                     />
-                    <Tooltip contentStyle={tooltipStyle} />
+                    <Tooltip
+                      content={<CustomChartTooltip isDarkMode={isDarkMode} />}
+                      cursor={{
+                        fill: isDarkMode
+                          ? "rgba(255, 255, 255, 0.06)"
+                          : "rgba(0, 0, 0, 0.03)",
+                      }}
+                    />
                     <Bar
                       dataKey="value"
                       fill="#A4343A"
@@ -500,17 +514,17 @@ export const SelfDashboard: React.FC = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // ── Inline Metric Card ───────────────────────────────────────────────────
 
 const MetricCardInline: React.FC<{
-  title: string
-  value: React.ReactNode
-  color: string
-  icon: React.FC<{ className?: string; style?: React.CSSProperties }>
-  description: string
+  title: string;
+  value: React.ReactNode;
+  color: string;
+  icon: React.FC<{ className?: string; style?: React.CSSProperties }>;
+  description: string;
 }> = ({ title, value, color, icon: Icon, description }) => {
   return (
     <div className="card flex w-full justify-between gap-x-4 p-5">
@@ -536,7 +550,7 @@ const MetricCardInline: React.FC<{
         <Icon style={{ color }} className="size-6" />
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default SelfDashboard
+export default SelfDashboard;

@@ -42,13 +42,19 @@ const FormField = <T extends FieldValues>({
   const defaultRender: ControllerProps<T>["render"] = ({
     field: { value, onChange, ...fieldRest },
     fieldState: { error: fieldError },
-  }) =>
-    children ? (
+  }) => {
+    const isSelect = children && (
+      (children.type as any)?.displayName === "Select" ||
+      (children.type as any)?.name === "Select"
+    );
+    const resolvedValue = isSelect && value === "" ? undefined : value;
+
+    return children ? (
       <div className={cn("w-full", bodyClassName)}>
         {cloneElement(children, {
           ...fieldRest,
           id: name,
-          [valuePropName]: value,
+          [valuePropName]: resolvedValue,
           onChange: (e: any) => {
             if (e?.target && typeof e.target === "object") {
               const target = e.target as HTMLInputElement
@@ -72,7 +78,8 @@ const FormField = <T extends FieldValues>({
       </div>
     ) : (
       <></>
-    )
+    );
+  };
 
   return (
     <div
