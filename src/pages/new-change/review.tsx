@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Input, Select, Modal, message } from "antd";
+import { Select, Modal, message } from "antd";
 import { ShieldAlert, CheckCircle } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "../../state/store";
 import { addChange, deleteChange } from "../../state/slices/changes-slice";
@@ -80,11 +80,11 @@ const ReviewStep: React.FC = () => {
 
   const handleConfirmSubmit = () => {
     const missingApprover = configuredStages.some(
-      (s) => s.type === "generic" && !approverSelections[s.id],
+      (s) => !approverSelections[s.id],
     );
     if (missingApprover) {
       setSubmitAttempted(true);
-      message.error("Select an approver for each requester-selected stage.");
+      message.error("Select an approver for each stage.");
       return;
     }
 
@@ -98,7 +98,7 @@ const ReviewStep: React.FC = () => {
       id: s.id,
       type: s.type,
       role: s.type === "role_based" ? s.role : undefined,
-      approverId: s.type === "generic" ? approverSelections[s.id] : undefined,
+      approverId: approverSelections[s.id],
     }));
 
     const changeRequest: ChangeRequest = {
@@ -403,7 +403,6 @@ const ReviewStep: React.FC = () => {
                 const isLast = idx === configuredStages.length - 1;
                 const fieldError: FieldError | undefined =
                   submitAttempted &&
-                  stage.type === "generic" &&
                   !approverSelections[stage.id]
                     ? { type: "required", message: "Select an approver" }
                     : undefined;
@@ -420,12 +419,23 @@ const ReviewStep: React.FC = () => {
                     {stage.type === "role_based" ? (
                       <FormField
                         label={`Stage ${idx + 1}: ${stage.role}`}
+                        error={fieldError}
                         rootClassName="mb-0!"
                       >
-                        <Input
-                          value={stage.role}
-                          readOnly
+                        <Select
+                          value={approverSelections[stage.id] || undefined}
+                          onChange={(value) =>
+                            setApproverSelections((prev) => ({
+                              ...prev,
+                              [stage.id]: value,
+                            }))
+                          }
+                          placeholder="Select an approver..."
                           className="h-11! w-full"
+                          options={users
+                            .filter((u) => stage.role && u.baseRoles.includes(stage.role))
+                            .map((u) => ({ label: `${u.name} (${u.department})`, value: u.id }))}
+                          status={fieldError ? "error" : undefined}
                         />
                       </FormField>
                     ) : (

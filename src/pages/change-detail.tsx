@@ -46,6 +46,7 @@ import {
   FaPenToSquare,
   FaFloppyDisk,
   FaTriangleExclamation,
+  FaPlus,
 } from "react-icons/fa6";
 import { FaAngleDoubleDown, FaAngleDoubleUp } from "react-icons/fa";
 import Label from "../components/ui/label";
@@ -167,6 +168,12 @@ export const ChangeDetail: React.FC = () => {
   const [editBusinessJustification, setEditBusinessJustification] =
     useState("");
   const [editRequestedTimeline, setEditRequestedTimeline] = useState("");
+  const [editTestSteps, setEditTestSteps] = useState<TestStep[]>([]);
+
+  // ---- Query response state ----
+  const [showQueryResponseModal, setShowQueryResponseModal] = useState(false);
+  const [queryResponseText, setQueryResponseText] = useState("");
+  const [queryResponseError, setQueryResponseError] = useState("");
 
   // Sync local state when change loads
   React.useEffect(() => {
@@ -200,6 +207,7 @@ export const ChangeDetail: React.FC = () => {
     !!change &&
     (isAdmin ||
       (isSubmitter && ["Submitted", "Under Review"].includes(change.status)));
+  const canRespondQuery = isSubmitter && change?.isQueried;
 
   // Test checklist from settings
   const testChecklist = useMemo(() => {
@@ -209,100 +217,198 @@ export const ChangeDetail: React.FC = () => {
     );
   }, [change, settings.testChecklists]);
 
-  const testStepColumns = useMemo<TableProps<TestStep>["columns"]>(
+  const handleEditStep = (stepId: string, field: keyof TestStep, value: string) => {
+    setEditTestSteps((prev) =>
+      prev.map((s) => (s.id === stepId ? { ...s, [field]: value } : s))
+    );
+  };
+
+  const handleDeleteStep = (stepId: string) => {
+    setEditTestSteps((prev) => prev.filter((s) => s.id !== stepId));
+  };
+
+  const handleAddStep = () => {
+    setEditTestSteps((prev) => [
+      ...prev,
+      {
+        id: `ts-custom-${Date.now()}`,
+        description: "",
+        expectedOutcome: "",
+        result: "pending",
+        notes: "",
+      },
+    ]);
+  };
+
+  const handleAutoGenerateEditSteps = () => {
+    if (!testChecklist) return;
+    const newSteps: TestStep[] = testChecklist.items.map((item, idx) => ({
+      id: `ts-gen-${Date.now()}-${idx}`,
+      description: item,
+      expectedOutcome: "Passes successfully",
+      result: "pending" as const,
+      notes: "",
+    }));
+    setEditTestSteps((prev) => [...prev, ...newSteps]);
+  };
+
+  const editTestStepColumns = useMemo<TableProps<TestStep>["columns"]>(
     () => [
       {
         title: "Test Step / Description",
         key: "description",
         render: (_, record) => (
-          <div className="space-y-1">
-            <span className="text-primary-alpha text-sm font-bold block">
-              {record.description}
-            </span>
-            <span className="text-fade-2 text-xs block font-medium">
-              Expected: {record.expectedOutcome}
-            </span>
-            {record.completedBy && (
-              <span className="text-fade-2 text-[10px] block font-medium mt-1">
-                Completed by{" "}
-                {users.find((u) => u.id === record.completedBy)?.name ||
-                  record.completedBy}
-                {record.completedAt && (
-                  <>
-                    {" "}
-                    on{" "}
-                    {dayjs(record.completedAt).format("MMM D, YYYY h:mm A")}
-                  </>
-                )}
+          <Input
+            value={record.description}
+            onChange={(e) => handleEditStep(record.id, "description", e.target.value)}
+            placeholder="e.g. Verify Opportunity page displays custom fields"
+            className="bg-background-light! w-full! rounded-xl!"
+          />
+        ),
+      },
+      {
+        title: "Expected Outcome",
+        key: "expectedOutcome",
+        render: (_, record) => (
+          <Input
+            value={record.expectedOutcome}
+            onChange={(e) => handleEditStep(record.id, "expectedOutcome", e.target.value)}
+            placeholder="e.g. Fields render correctly without error"
+            className="bg-background-light! w-full! rounded-xl!"
+          />
+        ),
+      },
+      {
+        title: "Action",
+        key: "delete",
+        width: 80,
+        render: (_, record) => (
+          <Button
+            type="text"
+            danger
+            icon={<FaXmark className="h-4 w-4" />}
+            onClick={() => handleDeleteStep(record.id)}
+            className="flex items-center justify-center"
+          />
+        ),
+      },
+    ],
+    [editTestSteps] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const testStepColumns = useMemo<TableProps<TestStep>["columns"]>(
+    () => {
+      const cols: TableProps<TestStep>["columns"] = [
+        {
+          title: "Test Step / Description",
+          key: "description",
+          render: (_, record) => (
+            <div className="space-y-1">
+              <span className="text-primary-alpha text-sm font-bold block">
+                {record.description}
               </span>
-            )}
-          </div>
-        ),
-      },
-      {
-        title: "Status",
-        dataIndex: "result",
-        key: "result",
-        width: 120,
-        render: (val: string) => (
-          <Tag value={val} format={true}>
-            {val}
-          </Tag>
-        ),
-      },
-      {
-        title: "Action / Notes",
-        key: "action",
+              <span className="text-fade-2 text-xs block font-medium">
+                Expected: {record.expectedOutcome}
+              </span>
+              {record.completedBy && (
+                <span className="text-fade-2 text-[10px] block font-medium mt-1">
+                  Completed by{" "}
+                  {users.find((u) => u.id === record.completedBy)?.name ||
+                    record.completedBy}
+                  {record.completedAt && (
+                    <>
+                      {" "}
+                      on{" "}
+                      {dayjs(record.completedAt).format("MMM D, YYYY h:mm A")}
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
+          ),
+        },
+        {
+          title: "Status",
+          dataIndex: "result",
+          key: "result",
+          width: 100,
+          render: (val: string) => (
+            <Tag value={val} format={true}>
+              {val}
+            </Tag>
+          ),
+        },
+      ];
+
+      if (canTest) {
+        cols.push({
+          title: "Action",
+          key: "action",
+          width: 150,
+          render: (_, record) => (
+            <div className="flex items-center gap-2">
+              <Button
+                size="small"
+                type={record.result === "pass" ? "primary" : "text"}
+                className={
+                  record.result === "pass"
+                    ? "!bg-emerald-600! !border-emerald-600! text-white! font-semibold flex items-center"
+                    : "text-fade hover:text-emerald-600! hover:bg-emerald-50 dark:hover:bg-emerald-950/20 flex items-center"
+                }
+                onClick={() => handleTestStepToggle(record.id, "pass")}
+              >
+                <FaCheck className="mr-1.5 h-3 w-3" />
+                Pass
+              </Button>
+              <Button
+                size="small"
+                type={record.result === "fail" ? "primary" : "text"}
+                danger={record.result === "fail"}
+                className={
+                  record.result === "fail"
+                    ? "!bg-red-600! !border-red-600! text-white! font-semibold flex items-center"
+                    : "text-fade hover:text-red-600! hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center"
+                }
+                onClick={() => handleTestStepToggle(record.id, "fail")}
+              >
+                <FaXmark className="mr-1.5 h-3 w-3" />
+                Fail
+              </Button>
+            </div>
+          ),
+        });
+      }
+
+      cols.push({
+        title: "Notes",
+        key: "notes",
+        width: canTest ? 220 : 180,
         render: (_, record) => {
           if (canTest) {
             return (
-              <div className="flex items-center gap-2">
-                <Button
-                  size="small"
-                  type={record.result === "pass" ? "primary" : "default"}
-                  className={
-                    record.result === "pass"
-                      ? "!bg-emerald-600! !border-emerald-600!"
-                      : ""
-                  }
-                  onClick={() => handleTestStepToggle(record.id, "pass")}
-                >
-                  <FaCheck className="mr-1 h-3 w-3" />
-                  Pass
-                </Button>
-                <Button
-                  size="small"
-                  danger
-                  type={record.result === "fail" ? "primary" : "default"}
-                  onClick={() => handleTestStepToggle(record.id, "fail")}
-                >
-                  <FaXmark className="mr-1 h-3 w-3" />
-                  Fail
-                </Button>
-                <Input
-                  size="small"
-                  placeholder="Notes..."
-                  value={testNotes[record.id] ?? record.notes}
-                  onChange={(e) =>
-                    setTestNotes((prev) => ({
-                      ...prev,
-                      [record.id]: e.target.value,
-                    }))
-                  }
-                  onBlur={() => {
-                    dispatch(
-                      updateTestStep({
-                        changeId: change?.id || "",
-                        stepId: record.id,
-                        updates: {
-                          notes: testNotes[record.id] ?? record.notes,
-                        },
-                      })
-                    );
-                  }}
-                  className="flex-1 min-w-[120px]"
-                />
-              </div>
+              <Input
+                size="small"
+                placeholder="Notes..."
+                value={testNotes[record.id] ?? record.notes}
+                onChange={(e) =>
+                  setTestNotes((prev) => ({
+                    ...prev,
+                    [record.id]: e.target.value,
+                  }))
+                }
+                onBlur={() => {
+                  dispatch(
+                    updateTestStep({
+                      changeId: change?.id || "",
+                      stepId: record.id,
+                      updates: {
+                        notes: testNotes[record.id] ?? record.notes,
+                      },
+                    })
+                  );
+                }}
+                className="w-full"
+              />
             );
           }
           return record.notes ? (
@@ -311,8 +417,10 @@ export const ChangeDetail: React.FC = () => {
             <span className="text-fade-2 text-xs italic">No notes</span>
           );
         },
-      },
-    ],
+      });
+
+      return cols;
+    },
     [canTest, testNotes, change?.id, users, dispatch]
   );
 
@@ -427,11 +535,7 @@ export const ChangeDetail: React.FC = () => {
     );
   };
 
-  const handleSaveTestPlan = () => {
-    dispatch(
-      updateChange({ id: change.id, updates: { testPlan: testPlanDraft } }),
-    );
-  };
+
 
   const handleAutoGenerateTests = () => {
     if (!testChecklist) return;
@@ -490,6 +594,61 @@ export const ChangeDetail: React.FC = () => {
       uploadedBy: currentUser.id,
     };
     dispatch(addEvidence({ changeId: change.id, evidence: mockFile }));
+  };
+
+  const handleDeleteEvidence = (evidenceId: string) => {
+    Modal.confirm({
+      title: "Delete Evidence",
+      content: "Are you sure you want to delete this evidence file?",
+      okText: "Yes, Delete",
+      okButtonProps: { danger: true },
+      onOk: () => {
+        dispatch(
+          updateChange({
+            id: change.id,
+            updates: {
+              evidence: change.evidence.filter((ev) => ev.id !== evidenceId),
+            },
+          }),
+        );
+        message.success("Evidence deleted successfully");
+      },
+    });
+  };
+
+  const handleQueryResponseSubmit = () => {
+    setQueryResponseError("");
+    if (!queryResponseText.trim()) {
+      setQueryResponseError("Please provide some information in response to the query.");
+      return;
+    }
+
+    dispatch(
+      updateChange({
+        id: change.id,
+        updates: {
+          isQueried: false,
+        },
+      }),
+    );
+
+    dispatch(
+      addTimelineEvent({
+        id: change.id,
+        event: {
+          stage: change.status,
+          actorName: currentUser.name,
+          actorId: currentUser.id,
+          action: "Responded to query",
+          comment: queryResponseText.trim(),
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    );
+
+    setQueryResponseText("");
+    setShowQueryResponseModal(false);
+    message.success("Response submitted successfully");
   };
 
   const handleDeploy = () => {
@@ -582,21 +741,7 @@ export const ChangeDetail: React.FC = () => {
     );
   };
 
-  const handleSaveRollbackPlan = () => {
-    dispatch(
-      updateChange({
-        id: change.id,
-        updates: {
-          rollbackPlan: {
-            steps: rollbackSteps,
-            responsiblePerson: rollbackPerson,
-            estimatedTime: rollbackTime,
-            dependencies: rollbackDeps,
-          },
-        },
-      }),
-    );
-  };
+
 
   const handleExecuteRollback = () => {
     Modal.confirm({
@@ -632,11 +777,31 @@ export const ChangeDetail: React.FC = () => {
     setEditCategory(change.category);
     setEditBusinessJustification(change.businessJustification);
     setEditRequestedTimeline(change.requestedTimeline);
+
+    // Rollback plan states
+    setRollbackSteps(change.rollbackPlan?.steps || "");
+    setRollbackPerson(change.rollbackPlan?.responsiblePerson || "");
+    setRollbackTime(change.rollbackPlan?.estimatedTime || "");
+    setRollbackDeps(change.rollbackPlan?.dependencies || "");
+
+    // Test plan & checklist states
+    setTestPlanDraft(change.testPlan || "");
+    setEditTestSteps([...change.testSteps]);
+
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
     setIsEditing(false);
+    // Reset rollback states
+    setRollbackSteps(change.rollbackPlan?.steps || "");
+    setRollbackPerson(change.rollbackPlan?.responsiblePerson || "");
+    setRollbackTime(change.rollbackPlan?.estimatedTime || "");
+    setRollbackDeps(change.rollbackPlan?.dependencies || "");
+
+    // Reset test plan & checklist states
+    setTestPlanDraft(change.testPlan || "");
+    setEditTestSteps([]);
   };
 
   const saveEditing = () => {
@@ -670,6 +835,14 @@ export const ChangeDetail: React.FC = () => {
           requestedTimeline: editRequestedTimeline,
           autoAssignedRisk,
           riskLevel: change.riskOverridden ? change.riskLevel : autoAssignedRisk,
+          rollbackPlan: {
+            steps: rollbackSteps,
+            responsiblePerson: rollbackPerson,
+            estimatedTime: rollbackTime,
+            dependencies: rollbackDeps,
+          },
+          testPlan: testPlanDraft,
+          testSteps: editTestSteps,
         },
       }),
     );
@@ -725,8 +898,6 @@ export const ChangeDetail: React.FC = () => {
   // -----------------------------------------------------------------------
   // TAB: Overview
   // -----------------------------------------------------------------------
-
-  const rollbackEditable = !isDeployed;
 
   const allTestsDecided =
     change.testSteps.length > 0 &&
@@ -868,7 +1039,12 @@ export const ChangeDetail: React.FC = () => {
                       </span>
                       {stage.type === "role_based" ? (
                         <span className="text-primary-alpha text-sm font-semibold">
-                          {stage.role}
+                          {users.find((u) => u.id === stage.approverId)?.name || stage.approverId || stage.role}
+                          {stage.approverId && (
+                            <span className="text-fade-2 ml-1.5 text-xs font-medium">
+                              ({stage.role})
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="text-primary-alpha text-sm font-semibold">
@@ -996,115 +1172,164 @@ export const ChangeDetail: React.FC = () => {
     </div>
   );
 
-  const renderTesting = () => (
-    <div className="space-y-6 pt-2">
-      {/* Test Plan */}
-      <div className="space-y-2">
-        <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-          Test Plan
-        </span>
-        <TextArea
-          rows={4}
-          value={testPlanDraft}
-          onChange={(e) => setTestPlanDraft(e.target.value)}
-          placeholder="Describe the test plan for this change..."
-          disabled={!canTest}
-          className={FORM.TEXTAREA_CLASS_NAME}
-        />
-        {canTest && (
-          <div className="mt-3 flex gap-2">
-            <Button type="primary" size="small" onClick={handleSaveTestPlan}>
-              Save Test Plan
-            </Button>
-            {testChecklist && change.testSteps.length === 0 && (
-              <Button size="small" onClick={handleAutoGenerateTests}>
-                Auto-generate Checklist ({testChecklist.items.length} items)
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+  const renderTesting = () => {
+    const hasSteps = isEditing ? editTestSteps.length > 0 : change.testSteps.length > 0;
 
-      {/* Test Steps */}
-      <div className="space-y-3 pt-4 border-t border-border/50">
-        <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-          Test Checklist
-        </span>
-        {change.testSteps.length === 0 ? (
-          <div className="text-center py-4">
-            <p className="text-fade-2 mb-3 text-sm italic">
-              No test steps defined yet.
-            </p>
-            {canTest && testChecklist && (
-              <Button onClick={handleAutoGenerateTests}>
-                Generate from {change.category} Template
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="border-border overflow-hidden rounded-2xl border">
-            <DataTable
-              dataSource={change.testSteps as any}
-              columns={testStepColumns as any}
-              pagination={false}
-              cardClassName="shadow-none! border-none! rounded-none! bg-transparent!"
+    return (
+      <div className="space-y-6 pt-2">
+        {/* Test Plan */}
+        <div className="space-y-2">
+          <Label>Test Plan</Label>
+          {isEditing ? (
+            <TextArea
+              rows={4}
+              value={testPlanDraft}
+              onChange={(e) => setTestPlanDraft(e.target.value)}
+              placeholder="Describe the test plan for this change..."
+              className={FORM.TEXTAREA_CLASS_NAME}
             />
-          </div>
-        )}
-
-        {canTest && allTestsDecided && (
-          <div className="mt-4">
-            <Button type="primary" onClick={handleMarkTestingComplete}>
-              <FaCheck className="mr-1.5 h-3 w-3" />
-              Mark Testing Complete
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Evidence */}
-      <div className="space-y-3 pt-4 border-t border-border/50">
-        <div className="flex items-center justify-between">
-          <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-            Evidence Uploads
-          </span>
-          {canTest && (
-            <Button size="small" onClick={handleUploadEvidence}>
-              <FaUpload className="mr-1.5 h-3 w-3" />
-              Upload Evidence
-            </Button>
+          ) : change.testPlan ? (
+            <div className="bg-bg-muted border border-border-muted rounded-2xl p-4 leading-relaxed font-medium">
+              <p className="text-primary-alpha text-sm leading-relaxed whitespace-pre-wrap">
+                {change.testPlan}
+              </p>
+            </div>
+          ) : (
+            <p className="text-fade-2 text-sm italic mt-1">No test plan defined.</p>
           )}
         </div>
-        {change.evidence.length === 0 ? (
-          <p className="text-fade-2 text-sm italic">
-            No evidence files uploaded.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {change.evidence.map((ev) => (
-              <div
-                key={ev.id}
-                className="bg-secondary flex items-center gap-3 rounded-lg border p-3"
-              >
-                <FaFile className="text-fade-2 h-4 w-4 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-primary-alpha truncate text-sm font-medium">
-                    {ev.name}
-                  </p>
-                  <p className="text-fade-2 text-xs">
-                    {ev.type} &middot; {formatBytes(ev.size)} &middot; Uploaded{" "}
-                    {dayjs(ev.uploadedAt).format("MMM D, YYYY h:mm A")} by{" "}
-                    {users.find((u) => u.id === ev.uploadedBy)?.name ||
-                      ev.uploadedBy}
-                  </p>
-                </div>
+
+        {/* Test Checklist */}
+        <div className="space-y-3 pt-4 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <Label>Test Checklist</Label>
+            {isEditing && (
+              <div className="flex gap-2">
+                {testChecklist && editTestSteps.length === 0 && (
+                  <Button
+                    type="text"
+                    size="small"
+                    onClick={handleAutoGenerateEditSteps}
+                    className="text-primary! flex! items-center! gap-1! font-semibold!"
+                  >
+                    Auto-generate Checklist ({testChecklist.items.length} items)
+                  </Button>
+                )}
+                <Button
+                  type="text"
+                  size="small"
+                  onClick={handleAddStep}
+                  className="text-primary! flex! items-center! gap-1! font-semibold!"
+                >
+                  <FaPlus className="mr-1 h-3.5 w-3.5" />
+                  Add Custom Step
+                </Button>
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          {!hasSteps ? (
+            <div className="text-center py-6 border border-dashed border-border-muted rounded-2xl bg-bg-muted/30">
+              <p className="text-fade-2 mb-3 text-sm italic">
+                No test steps defined yet.
+              </p>
+              {!isEditing && canTest && testChecklist && (
+                <Button
+                  type="text"
+                  size="small"
+                  onClick={handleAutoGenerateTests}
+                  className="text-primary! flex! items-center! gap-1! font-semibold! mx-auto!"
+                >
+                  Generate from {change.category} Template
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="border-border overflow-hidden rounded-2xl border">
+              <DataTable
+                dataSource={isEditing ? (editTestSteps as any) : (change.testSteps as any)}
+                columns={isEditing ? (editTestStepColumns as any) : (testStepColumns as any)}
+                pagination={false}
+                cardClassName="shadow-none! border-none! rounded-none! bg-transparent!"
+              />
+            </div>
+          )}
+
+          {!isEditing && canTest && allTestsDecided && (
+            <div className="mt-4">
+              <Button type="primary" onClick={handleMarkTestingComplete}>
+                <FaCheck className="mr-1.5 h-3 w-3" />
+                Mark Testing Complete
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Evidence */}
+        <div className="space-y-3 pt-4 border-t border-border/50">
+          <div className="flex items-center justify-between">
+            <Label>Evidence Uploads</Label>
+            {canTest && (
+              <Button
+                type="text"
+                size="small"
+                onClick={handleUploadEvidence}
+                className="text-primary! flex! items-center! gap-1! font-semibold!"
+              >
+                <FaUpload className="mr-1.5 h-3 w-3" />
+                Upload Evidence
+              </Button>
+            )}
+          </div>
+          {change.evidence.length === 0 ? (
+            <p className="text-fade-2 text-sm italic">
+              No evidence files uploaded.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {change.evidence.map((ev) => {
+                const canDelete = isAdmin || ev.uploadedBy === currentUserId;
+                return (
+                  <div
+                    key={ev.id}
+                    className="bg-bg-muted border border-border-muted flex items-center gap-3 rounded-2xl p-4 shadow-sm"
+                  >
+                    <div className="bg-primary-light dark:bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl">
+                      <FaFile className="text-primary h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-primary-alpha truncate text-sm font-bold">
+                        {ev.name}
+                      </p>
+                      <p className="text-fade-2 text-xs font-medium mt-0.5">
+                        {ev.type} &middot; {formatBytes(ev.size)}
+                      </p>
+                      <p className="text-fade-2 text-[10px] mt-1">
+                        Uploaded by{" "}
+                        <span className="font-semibold text-fade">
+                          {users.find((u) => u.id === ev.uploadedBy)?.name || ev.uploadedBy}
+                        </span>{" "}
+                        on {dayjs(ev.uploadedAt).format("MMM D, YYYY h:mm A")}
+                      </p>
+                    </div>
+                    {canDelete && (
+                      <Button
+                        type="text"
+                        danger
+                        icon={<FaXmark className="h-4 w-4" />}
+                        onClick={() => handleDeleteEvidence(ev.id)}
+                        className="shrink-0 flex items-center justify-center hover:bg-red-50 dark:hover:bg-red-950/20"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderDeployment = () => (
     <div className="space-y-6 pt-2">
@@ -1119,9 +1344,7 @@ export const ChangeDetail: React.FC = () => {
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-              Deployment Notes
-            </span>
+            <Label>Deployment Notes</Label>
             <TextArea
               rows={3}
               value={deployNotes}
@@ -1191,9 +1414,7 @@ export const ChangeDetail: React.FC = () => {
           {/* Post-deployment verification */}
           {change.deployment.verificationStatus === "pending" && (
             <div className="space-y-4 pt-4 border-t border-border/50">
-              <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-                Post-Deployment Verification
-              </span>
+              <Label>Post-Deployment Verification</Label>
               <div>
                 <Label>Verification Result</Label>
                 <Radio.Group
@@ -1215,9 +1436,7 @@ export const ChangeDetail: React.FC = () => {
           {change.deployment.verificationStatus === "confirmed" &&
             !change.deployment.signedOffBy && (
               <div className="space-y-3 pt-4 border-t border-border/50">
-                <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-                  Sign-Off
-                </span>
+                <Label>Sign-Off</Label>
                 <p className="text-fade-2 text-sm">
                   Deployment has been verified as working. Submit your sign-off
                   to close this change request.
@@ -1235,7 +1454,7 @@ export const ChangeDetail: React.FC = () => {
 
   const renderRollback = () => (
     <div className="space-y-6 pt-2">
-      {rollbackEditable ? (
+      {isEditing ? (
         <div className="space-y-4">
           <div>
             <Label>Rollback Steps</Label>
@@ -1277,9 +1496,6 @@ export const ChangeDetail: React.FC = () => {
               className={FORM.TEXTAREA_CLASS_NAME}
             />
           </div>
-          <Button type="primary" onClick={handleSaveRollbackPlan}>
-            Save Rollback Plan
-          </Button>
         </div>
       ) : change.rollbackPlan ? (
         <div className="space-y-4">
@@ -1319,9 +1535,7 @@ export const ChangeDetail: React.FC = () => {
         change.deployment?.verificationStatus === "issues_found" &&
         change.status !== "Rolled Back" && (
           <div className="space-y-3 pt-4 border-t border-border/50">
-            <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-              Execute Rollback
-            </span>
+            <Label>Execute Rollback</Label>
             <p className="text-fade-2 text-sm mb-3">
               Issues were found during post-deployment verification. You can
               execute the rollback plan to revert the deployment.
@@ -1351,7 +1565,11 @@ export const ChangeDetail: React.FC = () => {
               <h2 className="text-h2 text-primary-alpha font-bold tracking-tight">
                 {change.id}
               </h2>
-              <StatusTag status={change.status} />
+              {change.isQueried ? (
+                <Tag color="#f59e0b">Queried</Tag>
+              ) : (
+                <StatusTag status={change.status} />
+              )}
               <RiskTag level={change.riskLevel} />
               {change.riskOverridden && (
                 <Tooltip
@@ -1423,6 +1641,17 @@ export const ChangeDetail: React.FC = () => {
             </Tooltip>
           )}
 
+          {canRespondQuery && !isEditing && (
+            <Button
+              htmlType="button"
+              type="primary"
+              onClick={() => setShowQueryResponseModal(true)}
+              className="text-body-sm h-11! rounded-lg! border-none! bg-amber-600! px-5! font-semibold! text-white! hover:bg-amber-700!"
+            >
+              Respond to Query
+            </Button>
+          )}
+
           {canApprove && !isEditing && (
             <>
               <Button
@@ -1453,6 +1682,32 @@ export const ChangeDetail: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Query Message Banner */}
+      {change.isQueried && (
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex gap-3">
+            <FaCircleInfo className="text-amber-500 mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="text-primary-alpha text-sm font-bold">
+                Information Requested
+              </p>
+              <p className="text-fade-2 text-xs font-semibold mt-1">
+                "{change.queryComment || "No comment provided."}"
+              </p>
+            </div>
+          </div>
+          {canRespondQuery && (
+            <Button
+              type="primary"
+              onClick={() => setShowQueryResponseModal(true)}
+              className="bg-amber-600 hover:bg-amber-700 text-white border-none! font-semibold shrink-0"
+            >
+              Respond to Query
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Grid Layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -1748,6 +2003,57 @@ export const ChangeDetail: React.FC = () => {
                 </div>
               </div>
             )}
+        </div>
+      </Modal>
+
+      {/* Query Response Modal */}
+      <Modal
+        open={showQueryResponseModal}
+        onCancel={() => {
+          setShowQueryResponseModal(false);
+          setQueryResponseText("");
+          setQueryResponseError("");
+        }}
+        title="Respond to Query"
+        okText="Submit Response"
+        cancelText="Cancel"
+        okButtonProps={{
+          className: "bg-primary hover:bg-primary/90 text-white border-none! font-semibold",
+        }}
+        cancelButtonProps={{
+          className: "border-border! text-primary-alpha! hover:bg-bg-muted!",
+        }}
+        onOk={handleQueryResponseSubmit}
+        width={550}
+        centered
+      >
+        <div className="space-y-4 py-4 text-primary-alpha">
+          {queryResponseError && (
+            <div className="text-body-xs flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 p-3 font-semibold text-red-600 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400">
+              <FaTriangleExclamation className="h-4 w-4 shrink-0" />
+              <span>{queryResponseError}</span>
+            </div>
+          )}
+
+          <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
+            <span className="block text-[10px] font-bold tracking-wider uppercase">
+              Query Message
+            </span>
+            <p className="text-body-xs leading-relaxed font-semibold">
+              "{change.queryComment || "No comment provided."}"
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-fade">Your Response (Mandatory)</Label>
+            <TextArea
+              value={queryResponseText}
+              onChange={(e) => setQueryResponseText(e.target.value)}
+              placeholder="Provide information in response to the query..."
+              rows={4}
+              className={FORM.TEXTAREA_CLASS_NAME}
+            />
+          </div>
         </div>
       </Modal>
     </div>
