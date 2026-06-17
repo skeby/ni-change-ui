@@ -10,6 +10,7 @@ import FormField from "../../components/ui/form-field";
 import { FORM } from "../../static";
 import { useWizard } from "./new-change-wizard";
 import type { ChangeCategory } from "../../state/slices/changes-slice";
+import Label from "../../components/ui/label";
 
 const generalSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -21,32 +22,26 @@ const generalSchema = z.object({
 
 type GeneralValues = z.infer<typeof generalSchema>;
 
-const SYSTEM_OPTIONS = [
-  "NetSuite",
-  "Salesforce",
-  "ERP",
-  "HRIS",
-  "CRM",
-  "SharePoint",
-  "Power BI",
-  "Custom Application",
-  "Other",
-];
-
-const CATEGORY_OPTIONS: ChangeCategory[] = [
-  "New Feature",
-  "Bug Fix",
-  "Configuration Change",
-  "Integration",
-  "Security Patch",
-  "AI",
-];
-
 const GeneralStep: React.FC = () => {
   const navigate = useNavigate();
   const { formData, updateFormData, draftId } = useWizard();
   const { currentUserId, users } = useAppSelector((state) => state.auth);
+  const { systems, categories } = useAppSelector((state) => state.settings);
   const currentUser = users.find((u) => u.id === currentUserId);
+
+  const systemOptions = [
+    { label: "Select system", value: "" },
+    ...systems
+      .filter((s) => s.active)
+      .map((s) => ({ label: s.name, value: s.name })),
+  ];
+
+  const categoryOptions = [
+    { label: "Select category", value: "" },
+    ...categories
+      .filter((c) => c.active)
+      .map((c) => ({ label: c.name, value: c.name })),
+  ];
 
   const { control, handleSubmit, setValue, watch } = useForm<GeneralValues>({
     resolver: zodResolver(generalSchema),
@@ -140,30 +135,30 @@ const GeneralStep: React.FC = () => {
           required
         >
           <Select
+            showSearch={{ optionFilterProp: "label" }}
             value={watch("systemAffected") || undefined}
             onChange={(value) => setValue("systemAffected", value)}
             placeholder="Select system..."
             className={FORM.CLASS_NAME}
-            options={SYSTEM_OPTIONS.map((s) => ({ label: s, value: s }))}
+            options={systemOptions}
           />
         </FormField>
 
         {/* Category */}
         <FormField name="category" control={control} label="Category" required>
           <Select
+            showSearch={{ optionFilterProp: "label" }}
             value={watch("category") || undefined}
             onChange={(value) => setValue("category", value)}
             placeholder="Select category..."
             className={FORM.CLASS_NAME}
-            options={CATEGORY_OPTIONS.map((c) => ({ label: c, value: c }))}
+            options={categoryOptions}
           />
         </FormField>
 
         {/* Submitter Name (auto-filled, read-only) */}
         <div className="flex flex-col">
-          <label className="text-body-sm text-primary-alpha mb-1.5 block font-bold">
-            Submitter Name
-          </label>
+          <Label>Submitter Name</Label>
           <Input
             value={currentUser?.name || ""}
             disabled
@@ -173,9 +168,7 @@ const GeneralStep: React.FC = () => {
 
         {/* Department (auto-filled, read-only) */}
         <div className="flex flex-col">
-          <label className="text-body-sm text-primary-alpha mb-1.5 block font-bold">
-            Department
-          </label>
+          <Label>Department</Label>
           <Input
             value={currentUser?.department || ""}
             disabled

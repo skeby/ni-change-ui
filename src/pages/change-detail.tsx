@@ -4,31 +4,34 @@ import { useAppSelector, useAppDispatch } from "../state/store";
 import {
   updateChange,
   addTimelineEvent,
-  addComment,
   addApproval,
   updateTestStep,
   addEvidence,
   type ChangeStatus,
   type RiskLevel,
+  type ChangeCategory,
   type TestStep,
-  type Comment as ChangeComment,
 } from "../state/slices/changes-slice";
 import {
   Button,
   Input,
+  Select,
+  DatePicker,
   Radio,
   Modal,
-  Descriptions,
   Checkbox,
   InputNumber,
   Empty,
   Tooltip,
+  message,
+  type TableProps,
 } from "antd";
 import { Collapse } from "../components/ui/collapse";
 import Tag from "../components/ui/tag";
+import { DataTable } from "../components/ui/data-table";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
 import { cn } from "../utils/cn";
+import { Utils } from "../utils";
 import {
   FaArrowLeft,
   FaClockRotateLeft,
@@ -38,16 +41,15 @@ import {
   FaCircleInfo,
   FaCheck,
   FaXmark,
-  FaPaperPlane,
   FaUpload,
   FaFile,
-  FaReply,
+  FaPenToSquare,
+  FaFloppyDisk,
+  FaTriangleExclamation,
 } from "react-icons/fa6";
 import { FaAngleDoubleDown, FaAngleDoubleUp } from "react-icons/fa";
 import Label from "../components/ui/label";
 import { FORM } from "../static";
-
-dayjs.extend(relativeTime);
 
 const { TextArea } = Input;
 
@@ -61,8 +63,26 @@ const StatusTag: React.FC<{ status: ChangeStatus }> = ({ status }) => (
   </Tag>
 );
 
-const RiskTag: React.FC<{ level: RiskLevel }> = ({ level }) => (
-  <Tag value={level}>{level} Risk</Tag>
+const RiskTag: React.FC<{ level: RiskLevel }> = ({ level }) => {
+  const { riskLevels } = useAppSelector((state) => state.settings);
+  return (
+    <Tag color={Utils.resolveRiskColor(riskLevels, level)}>{level} Risk</Tag>
+  );
+};
+
+const SummaryField: React.FC<{
+  label: string;
+  value?: string;
+  full?: boolean;
+}> = ({ label, value, full }) => (
+  <div className={cn(full && "col-span-full")}>
+    <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+      {label}
+    </span>
+    <span className="text-primary-alpha mt-1 block whitespace-pre-wrap font-bold">
+      {value || <span className="text-fade italic">Not provided</span>}
+    </span>
+  </div>
 );
 
 export const ChangeDetail: React.FC = () => {
@@ -79,12 +99,13 @@ export const ChangeDetail: React.FC = () => {
   const currentUser = users.find((u) => u.id === currentUserId) || users[0];
   const change = useMemo(() => changes.find((c) => c.id === id), [changes, id]);
 
-  // ---- Collapsible sections state (all collapsed initially) ----
+  // ---- Collapsible sections state ----
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     overview: false,
     testing: false,
     deployment: false,
     rollback: false,
+    workflow: true,
   });
 
   const isAllExpanded = useMemo(() => {
@@ -97,6 +118,7 @@ export const ChangeDetail: React.FC = () => {
       testing: true,
       deployment: true,
       rollback: true,
+      workflow: true,
     });
   };
 
@@ -106,14 +128,16 @@ export const ChangeDetail: React.FC = () => {
       testing: false,
       deployment: false,
       rollback: false,
+      workflow: false,
     });
   };
 
-  // ---- Approval form state ----
-  const [approvalAction, setApprovalAction] = useState<
-    "approved" | "rejected" | "info_requested"
-  >("approved");
-  const [approvalComment, setApprovalComment] = useState("");
+  // ---- Approver action modal state ----
+  const [approverAction, setApproverAction] = useState<
+    "approve" | "query" | "decline" | null
+  >(null);
+  const [actionComment, setActionComment] = useState("");
+  const [actionError, setActionError] = useState("");
   const [handledInHouse, setHandledInHouse] = useState(true);
   const [costInvolved, setCostInvolved] = useState(false);
   const [estimatedCost, setEstimatedCost] = useState<number>(0);
@@ -134,10 +158,15 @@ export const ChangeDetail: React.FC = () => {
   const [rollbackTime, setRollbackTime] = useState("");
   const [rollbackDeps, setRollbackDeps] = useState("");
 
-  // ---- Comment state ----
-  const [newComment, setNewComment] = useState("");
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [replyContent, setReplyContent] = useState("");
+  // ---- Edit mode state ----
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSystemAffected, setEditSystemAffected] = useState("");
+  const [editCategory, setEditCategory] = useState<ChangeCategory | "">("");
+  const [editBusinessJustification, setEditBusinessJustification] =
+    useState("");
+  const [editRequestedTimeline, setEditRequestedTimeline] = useState("");
 
   // Sync local state when change loads
   React.useEffect(() => {
@@ -166,6 +195,11 @@ export const ChangeDetail: React.FC = () => {
     change &&
     ["Testing Complete", "Awaiting Deployment"].includes(change.status);
   const isDeployed = !!change?.deployment;
+  const isSubmitter = change?.submitterId === currentUserId;
+  const canEdit =
+    !!change &&
+    (isAdmin ||
+      (isSubmitter && ["Submitted", "Under Review"].includes(change.status)));
 
   // Test checklist from settings
   const testChecklist = useMemo(() => {
@@ -174,6 +208,113 @@ export const ChangeDetail: React.FC = () => {
       (tc) => tc.category === change.category,
     );
   }, [change, settings.testChecklists]);
+
+  const testStepColumns = useMemo<TableProps<TestStep>["columns"]>(
+    () => [
+      {
+        title: "Test Step / Description",
+        key: "description",
+        render: (_, record) => (
+          <div className="space-y-1">
+            <span className="text-primary-alpha text-sm font-bold block">
+              {record.description}
+            </span>
+            <span className="text-fade-2 text-xs block font-medium">
+              Expected: {record.expectedOutcome}
+            </span>
+            {record.completedBy && (
+              <span className="text-fade-2 text-[10px] block font-medium mt-1">
+                Completed by{" "}
+                {users.find((u) => u.id === record.completedBy)?.name ||
+                  record.completedBy}
+                {record.completedAt && (
+                  <>
+                    {" "}
+                    on{" "}
+                    {dayjs(record.completedAt).format("MMM D, YYYY h:mm A")}
+                  </>
+                )}
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        title: "Status",
+        dataIndex: "result",
+        key: "result",
+        width: 120,
+        render: (val: string) => (
+          <Tag value={val} format={true}>
+            {val}
+          </Tag>
+        ),
+      },
+      {
+        title: "Action / Notes",
+        key: "action",
+        render: (_, record) => {
+          if (canTest) {
+            return (
+              <div className="flex items-center gap-2">
+                <Button
+                  size="small"
+                  type={record.result === "pass" ? "primary" : "default"}
+                  className={
+                    record.result === "pass"
+                      ? "!bg-emerald-600! !border-emerald-600!"
+                      : ""
+                  }
+                  onClick={() => handleTestStepToggle(record.id, "pass")}
+                >
+                  <FaCheck className="mr-1 h-3 w-3" />
+                  Pass
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  type={record.result === "fail" ? "primary" : "default"}
+                  onClick={() => handleTestStepToggle(record.id, "fail")}
+                >
+                  <FaXmark className="mr-1 h-3 w-3" />
+                  Fail
+                </Button>
+                <Input
+                  size="small"
+                  placeholder="Notes..."
+                  value={testNotes[record.id] ?? record.notes}
+                  onChange={(e) =>
+                    setTestNotes((prev) => ({
+                      ...prev,
+                      [record.id]: e.target.value,
+                    }))
+                  }
+                  onBlur={() => {
+                    dispatch(
+                      updateTestStep({
+                        changeId: change?.id || "",
+                        stepId: record.id,
+                        updates: {
+                          notes: testNotes[record.id] ?? record.notes,
+                        },
+                      })
+                    );
+                  }}
+                  className="flex-1 min-w-[120px]"
+                />
+              </div>
+            );
+          }
+          return record.notes ? (
+            <span className="text-fade text-xs italic">"{record.notes}"</span>
+          ) : (
+            <span className="text-fade-2 text-xs italic">No notes</span>
+          );
+        },
+      },
+    ],
+    [canTest, testNotes, change?.id, users, dispatch]
+  );
 
   // -----------------------------------------------------------------------
   // Not found
@@ -194,18 +335,33 @@ export const ChangeDetail: React.FC = () => {
   // Action handlers
   // -----------------------------------------------------------------------
 
-  const handleApprovalSubmit = () => {
-    if (!approvalComment.trim() && approvalAction !== "approved") return;
+  const handleSubmitAction = (action: "approve" | "query" | "decline") => {
+    setActionError("");
+    if (action !== "approve" && !actionComment.trim()) {
+      setActionError("A comment or description is required for this action.");
+      return;
+    }
+
+    const approvalAction: "approved" | "rejected" | "info_requested" =
+      action === "approve"
+        ? "approved"
+        : action === "decline"
+          ? "rejected"
+          : "info_requested";
 
     const approval = {
       approverId: currentUser.id,
       approverName: currentUser.name,
       action: approvalAction,
       timestamp: new Date().toISOString(),
-      comment: approvalComment || undefined,
-      handledInHouse: isAdmin ? handledInHouse : undefined,
-      costInvolved: isAdmin ? costInvolved : undefined,
-      estimatedCost: isAdmin && costInvolved ? estimatedCost : undefined,
+      comment: actionComment || undefined,
+      handledInHouse:
+        action === "approve" && isAdmin ? handledInHouse : undefined,
+      costInvolved: action === "approve" && isAdmin ? costInvolved : undefined,
+      estimatedCost:
+        action === "approve" && isAdmin && costInvolved
+          ? estimatedCost
+          : undefined,
     };
 
     dispatch(addApproval({ id: change.id, approval }));
@@ -223,7 +379,7 @@ export const ChangeDetail: React.FC = () => {
       dispatch(
         updateChange({
           id: change.id,
-          updates: { isQueried: true, queryComment: approvalComment },
+          updates: { isQueried: true, queryComment: actionComment },
         }),
       );
     }
@@ -242,15 +398,18 @@ export const ChangeDetail: React.FC = () => {
                 ? "Rejected"
                 : "Requested more information",
           timestamp: new Date().toISOString(),
-          comment: approvalComment || undefined,
+          comment: actionComment || undefined,
+          handledInHouse: approval.handledInHouse,
+          costInvolved: approval.costInvolved,
+          estimatedCost: approval.estimatedCost,
         },
       }),
     );
 
-    setApprovalComment("");
-    setApprovalAction("approved");
+    setActionComment("");
     setCostInvolved(false);
     setEstimatedCost(0);
+    setApproverAction(null);
   };
 
   const handleTestStepToggle = (stepId: string, result: "pass" | "fail") => {
@@ -386,8 +545,8 @@ export const ChangeDetail: React.FC = () => {
           actorId: currentUser.id,
           action:
             verificationStatus === "confirmed"
-              ? "Post-deployment verification: Confirmed working"
-              : "Post-deployment verification: Issues found",
+              ? "Verification Passed"
+              : "Verification Failed",
           timestamp: new Date().toISOString(),
         },
       }),
@@ -466,27 +625,67 @@ export const ChangeDetail: React.FC = () => {
     });
   };
 
-  const handleAddComment = (parentId?: string) => {
-    const content = parentId ? replyContent : newComment;
-    if (!content.trim()) return;
+  const startEditing = () => {
+    setEditTitle(change.title);
+    setEditDescription(change.description);
+    setEditSystemAffected(change.systemAffected);
+    setEditCategory(change.category);
+    setEditBusinessJustification(change.businessJustification);
+    setEditRequestedTimeline(change.requestedTimeline);
+    setIsEditing(true);
+  };
 
-    const comment: ChangeComment = {
-      id: `c-${Date.now()}`,
-      authorId: currentUser.id,
-      authorName: currentUser.name,
-      content: content.trim(),
-      timestamp: new Date().toISOString(),
-      parentId,
-    };
+  const cancelEditing = () => {
+    setIsEditing(false);
+  };
 
-    dispatch(addComment({ id: change.id, comment }));
-
-    if (parentId) {
-      setReplyingTo(null);
-      setReplyContent("");
-    } else {
-      setNewComment("");
+  const saveEditing = () => {
+    if (
+      !editTitle.trim() ||
+      !editDescription.trim() ||
+      !editSystemAffected ||
+      !editCategory ||
+      !editBusinessJustification.trim() ||
+      !editRequestedTimeline
+    ) {
+      message.error("Please fill in all fields before saving.");
+      return;
     }
+
+    const categoryChanged = editCategory !== change.category;
+    const autoAssignedRisk = categoryChanged
+      ? settings.categories.find((c) => c.name === editCategory)
+          ?.defaultRisk || change.autoAssignedRisk
+      : change.autoAssignedRisk;
+
+    dispatch(
+      updateChange({
+        id: change.id,
+        updates: {
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          systemAffected: editSystemAffected,
+          category: editCategory as ChangeCategory,
+          businessJustification: editBusinessJustification.trim(),
+          requestedTimeline: editRequestedTimeline,
+          autoAssignedRisk,
+          riskLevel: change.riskOverridden ? change.riskLevel : autoAssignedRisk,
+        },
+      }),
+    );
+    dispatch(
+      addTimelineEvent({
+        id: change.id,
+        event: {
+          stage: change.status,
+          actorName: currentUser.name,
+          actorId: currentUser.id,
+          action: "Updated request details",
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    );
+    setIsEditing(false);
   };
 
   // -----------------------------------------------------------------------
@@ -499,17 +698,28 @@ export const ChangeDetail: React.FC = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const approvalActionLabel = (action: string) => {
-    switch (action) {
-      case "approved":
-        return <Tag value="approved">Approved</Tag>;
-      case "rejected":
-        return <Tag value="rejected">Rejected</Tag>;
-      case "info_requested":
-        return <Tag value="info_requested">Info Requested</Tag>;
-      default:
-        return <Tag>{action}</Tag>;
-    }
+  const getEventColor = (action: string) => {
+    const a = action.toLowerCase();
+    if (
+      a.includes("reject") ||
+      a.includes("rollback") ||
+      a.includes("issues found") ||
+      a.includes("fail")
+    )
+      return "#ef4444"; // red-500
+    if (a.includes("request") || a.includes("quer")) return "#f59e0b"; // amber-500
+    if (
+      a.includes("approved") ||
+      a.includes("submitted") ||
+      a.includes("created") ||
+      a.includes("deployed") ||
+      a.includes("signed off") ||
+      a.includes("passed") ||
+      a.includes("complete") ||
+      a.includes("confirmed")
+    )
+      return "#10b981"; // emerald-500
+    return "#94a3b8"; // slate-400
   };
 
   // -----------------------------------------------------------------------
@@ -522,251 +732,266 @@ export const ChangeDetail: React.FC = () => {
     change.testSteps.length > 0 &&
     change.testSteps.every((s) => s.result !== "pending");
 
-  const topLevelComments = change.comments.filter((c) => !c.parentId);
-
-  const repliesMap = useMemo(() => {
-    const map: Record<string, ChangeComment[]> = {};
-    change.comments.forEach((c) => {
-      if (c.parentId) {
-        if (!map[c.parentId]) map[c.parentId] = [];
-        map[c.parentId].push(c);
-      }
-    });
-    return map;
-  }, [change.comments]);
-
-  const renderComment = (comment: ChangeComment, depth: number = 0) => (
-    <div
-      key={comment.id}
-      className={cn(
-        "space-y-2",
-        depth > 0 &&
-          "ml-8 border-l-2 border-blue-200 pl-4 dark:border-blue-800",
-      )}
-    >
-      <div className="bg-secondary rounded-lg border p-3">
-        <div className="flex items-center gap-2">
-          <span className="text-primary-alpha text-sm font-semibold">
-            {comment.authorName}
-          </span>
-          <span className="text-fade-2 text-xs">
-            {dayjs(comment.timestamp).fromNow()}
-          </span>
-        </div>
-        <p className="text-primary-alpha mt-1 text-sm">{comment.content}</p>
-        <Button
-          type="link"
-          size="small"
-          className="mt-1 !p-0 text-xs"
-          onClick={() => {
-            setReplyingTo(replyingTo === comment.id ? null : comment.id);
-            setReplyContent("");
-          }}
-        >
-          <FaReply className="mr-1 h-3 w-3" />
-          Reply
-        </Button>
-
-        {replyingTo === comment.id && (
-          <div className="mt-2 flex gap-2">
-            <TextArea
-              rows={2}
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder="Write a reply..."
-              className={cn(FORM.TEXTAREA_CLASS_NAME, "flex-1")}
-            />
-            <Button
-              type="primary"
-              size="small"
-              onClick={() => handleAddComment(comment.id)}
-              className="self-end"
-            >
-              Reply
-            </Button>
-          </div>
-        )}
-      </div>
-      {/* Nested replies */}
-      {(repliesMap[comment.id] || []).map((reply) =>
-        renderComment(reply, depth + 1),
-      )}
-    </div>
-  );
-
   const renderOverview = () => (
     <div className="space-y-6 pt-2">
-      {/* Details grid */}
-      <Descriptions
-        bordered
-        size="small"
-        column={{ xs: 1, sm: 2, lg: 3 }}
-        labelStyle={{ fontWeight: 600, fontSize: 12 }}
-        contentStyle={{ fontSize: 13 }}
-      >
-        <Descriptions.Item label="System">
-          {change.systemAffected}
-        </Descriptions.Item>
-        <Descriptions.Item label="Category">
-          <Tag>{change.category}</Tag>
-        </Descriptions.Item>
-        <Descriptions.Item label="Risk Level">
-          <RiskTag level={change.riskLevel} />
-          {change.riskOverridden && (
-            <Tooltip
-              title={
-                change.riskOverrideJustification ||
-                "Risk was manually overridden"
-              }
-            >
-              <Tag color="#f59e0b" className="ml-1">
-                Overridden
-              </Tag>
-            </Tooltip>
-          )}
-        </Descriptions.Item>
-        <Descriptions.Item label="Submitter">
-          {change.submitterName}
-        </Descriptions.Item>
-        <Descriptions.Item label="Department">
-          {change.submitterDepartment}
-        </Descriptions.Item>
-        <Descriptions.Item label="Requested Timeline">
-          {dayjs(change.requestedTimeline).format("MMM D, YYYY")}
-        </Descriptions.Item>
-        <Descriptions.Item label="Created">
-          {dayjs(change.createdAt).format("MMM D, YYYY h:mm A")}
-        </Descriptions.Item>
-        <Descriptions.Item label="Last Updated">
-          {dayjs(change.updatedAt).format("MMM D, YYYY h:mm A")}
-        </Descriptions.Item>
-      </Descriptions>
-
-      {/* Approval Chain */}
-      {(change.approvalPlan?.length || change.selectedApprover) && (
-        <div className="space-y-3 pt-3 border-t border-border/50">
-          <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-            Approval Chain
-          </span>
-          {change.approvalPlan?.length ? (
-            <div className="space-y-3">
-              {change.approvalPlan.map((stage, idx) => (
-                <div key={stage.id} className="flex items-center gap-3">
-                  <span className="bg-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
-                    {idx + 1}
-                  </span>
-                  {stage.type === "role_based" ? (
-                    <span className="text-primary-alpha text-sm font-semibold">
-                      {stage.role}
-                    </span>
-                  ) : (
-                    <span className="text-primary-alpha text-sm font-semibold">
-                      {users.find((u) => u.id === stage.approverId)?.name ||
-                        stage.approverId ||
-                        "Requester-selected approver"}
-                      <span className="text-fade-2 ml-1.5 text-xs font-medium">
-                        (selected by requester)
-                      </span>
-                    </span>
-                  )}
-                </div>
-              ))}
+      {isEditing ? (
+        <div className="space-y-4">
+          <div>
+            <Label>Title</Label>
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              placeholder="e.g. Update invoice approval workflow in NetSuite"
+              className={FORM.CLASS_NAME}
+            />
+          </div>
+          <div>
+            <Label>Description</Label>
+            <TextArea
+              rows={4}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              placeholder="Describe the change in detail..."
+              className={FORM.TEXTAREA_CLASS_NAME}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <Label>System Affected</Label>
+              <Select
+                showSearch={{ optionFilterProp: "label" }}
+                value={editSystemAffected || undefined}
+                onChange={(value) => setEditSystemAffected(value)}
+                placeholder="Select system..."
+                className={FORM.CLASS_NAME}
+                options={settings.systems
+                  .filter((s) => s.active)
+                  .map((s) => ({ label: s.name, value: s.name }))}
+              />
             </div>
-          ) : (
-            <p className="text-primary-alpha text-sm font-semibold">
-              {users.find((u) => u.id === change.selectedApprover)?.name ||
-                change.selectedApprover}
-            </p>
+            <div>
+              <Label>Category</Label>
+              <Select
+                showSearch={{ optionFilterProp: "label" }}
+                value={editCategory || undefined}
+                onChange={(value) => setEditCategory(value)}
+                placeholder="Select category..."
+                className={FORM.CLASS_NAME}
+                options={settings.categories
+                  .filter((c) => c.active)
+                  .map((c) => ({ label: c.name, value: c.name }))}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Requested Timeline</Label>
+              <DatePicker
+                value={
+                  editRequestedTimeline ? dayjs(editRequestedTimeline) : null
+                }
+                onChange={(date) =>
+                  setEditRequestedTimeline(
+                    date ? date.format("YYYY-MM-DD") : "",
+                  )
+                }
+                className={cn(FORM.CLASS_NAME, "w-full!")}
+                placeholder="Select target date..."
+                format="YYYY-MM-DD"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Business Justification</Label>
+            <TextArea
+              rows={3}
+              value={editBusinessJustification}
+              onChange={(e) => setEditBusinessJustification(e.target.value)}
+              placeholder="Why is this change needed?"
+              className={FORM.TEXTAREA_CLASS_NAME}
+            />
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Details grid */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <SummaryField label="System" value={change.systemAffected} />
+            <SummaryField label="Category" value={change.category} />
+            <div>
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Risk Level
+              </span>
+              <div className="mt-1 flex items-center gap-1.5">
+                <RiskTag level={change.riskLevel} />
+                {change.riskOverridden && (
+                  <Tooltip
+                    title={
+                      change.riskOverrideJustification ||
+                      "Risk was manually overridden"
+                    }
+                  >
+                    <Tag color="#f59e0b">Overridden</Tag>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+            <SummaryField label="Submitter" value={change.submitterName} />
+            <SummaryField
+              label="Department"
+              value={change.submitterDepartment}
+            />
+            <SummaryField
+              label="Requested Timeline"
+              value={dayjs(change.requestedTimeline).format("MMM D, YYYY")}
+            />
+            <SummaryField
+              label="Created"
+              value={dayjs(change.createdAt).format("MMM D, YYYY h:mm A")}
+            />
+            <SummaryField
+              label="Last Updated"
+              value={dayjs(change.updatedAt).format("MMM D, YYYY h:mm A")}
+            />
+          </div>
+
+          {/* Approval Chain */}
+          {(change.approvalPlan?.length || change.selectedApprover) && (
+            <div className="border-border-muted space-y-3 border-t pt-3">
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Approval Chain
+              </span>
+              {change.approvalPlan?.length ? (
+                <div className="space-y-3">
+                  {change.approvalPlan.map((stage, idx) => (
+                    <div key={stage.id} className="flex items-center gap-3">
+                      <span className="bg-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
+                        {idx + 1}
+                      </span>
+                      {stage.type === "role_based" ? (
+                        <span className="text-primary-alpha text-sm font-semibold">
+                          {stage.role}
+                        </span>
+                      ) : (
+                        <span className="text-primary-alpha text-sm font-semibold">
+                          {users.find((u) => u.id === stage.approverId)
+                            ?.name ||
+                            stage.approverId ||
+                            "Requester-selected approver"}
+                          <span className="text-fade-2 ml-1.5 text-xs font-medium">
+                            (selected by requester)
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-primary-alpha text-sm font-semibold">
+                  {users.find((u) => u.id === change.selectedApprover)
+                    ?.name || change.selectedApprover}
+                </p>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Description */}
-      <div className="space-y-1.5">
-        <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-          Description
-        </span>
-        <p className="text-primary-alpha whitespace-pre-wrap text-sm leading-relaxed">
-          {change.description}
-        </p>
-      </div>
+          {/* Description */}
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Description
+            </span>
+            <span className="text-fade mt-1 block leading-relaxed font-medium whitespace-pre-wrap">
+              {change.description}
+            </span>
+          </div>
 
-      {/* Business Justification */}
-      <div className="space-y-1.5">
-        <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-          Business Justification
-        </span>
-        <p className="text-primary-alpha whitespace-pre-wrap text-sm leading-relaxed">
-          {change.businessJustification}
-        </p>
-      </div>
+          {/* Business Justification */}
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Business Justification
+            </span>
+            <span className="text-fade mt-1 block leading-relaxed font-medium whitespace-pre-wrap">
+              {change.businessJustification}
+            </span>
+          </div>
 
-      {/* AI Request Data */}
-      {change.aiRequest && (
-        <div className="space-y-3 pt-4 border-t border-border/50">
-          <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
-            AI Request Data
-          </span>
-          <Descriptions
-            bordered
-            size="small"
-            column={{ xs: 1, sm: 2 }}
-            labelStyle={{ fontWeight: 600, fontSize: 12 }}
-            contentStyle={{ fontSize: 13 }}
-          >
-            <Descriptions.Item label="Frequency">
-              {change.aiRequest.frequency}
-            </Descriptions.Item>
-            <Descriptions.Item label="Rule Engine">
-              {change.aiRequest.ruleEngine}
-            </Descriptions.Item>
-            <Descriptions.Item label="AI/ML">
-              {change.aiRequest.aiMl}
-            </Descriptions.Item>
-            <Descriptions.Item label="Human Review">
-              {change.aiRequest.human}
-            </Descriptions.Item>
-            <Descriptions.Item label="Statistical Modeling">
-              {change.aiRequest.statisticalModeling}
-            </Descriptions.Item>
-            <Descriptions.Item label="Problem Complexity">
-              {change.aiRequest.problemComplexity}
-            </Descriptions.Item>
-            <Descriptions.Item label="Problem Description" span={2}>
-              {change.aiRequest.problemDescription}
-            </Descriptions.Item>
-            <Descriptions.Item label="Current Solution" span={2}>
-              {change.aiRequest.currentSolution}
-            </Descriptions.Item>
-            <Descriptions.Item label="Success Metrics" span={2}>
-              {change.aiRequest.successMetrics}
-            </Descriptions.Item>
-            <Descriptions.Item label="Simpler Alternative">
-              {change.aiRequest.simplerAlternative}
-            </Descriptions.Item>
-            <Descriptions.Item label="Global Use">
-              {change.aiRequest.globalUse}
-            </Descriptions.Item>
-            <Descriptions.Item label="Requires Staff Data">
-              {change.aiRequest.requiresStaffData}
-            </Descriptions.Item>
-            <Descriptions.Item label="Requires Sensitive Data">
-              {change.aiRequest.requiresSensitiveData}
-            </Descriptions.Item>
-            <Descriptions.Item label="External Users">
-              {change.aiRequest.externalUsers}
-            </Descriptions.Item>
-            <Descriptions.Item label="Internal Only">
-              {change.aiRequest.internalOnly}
-            </Descriptions.Item>
-            <Descriptions.Item label="Both Users">
-              {change.aiRequest.bothUsers}
-            </Descriptions.Item>
-            <Descriptions.Item label="Duration">
-              {change.aiRequest.duration}
-            </Descriptions.Item>
-          </Descriptions>
-        </div>
+          {/* AI Request Data */}
+          {change.aiRequest && (
+            <div className="border-border-muted space-y-3 border-t pt-4">
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                AI Request Data
+              </span>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryField
+                  label="Frequency"
+                  value={change.aiRequest.frequency}
+                />
+                <SummaryField
+                  label="Rule Engine"
+                  value={change.aiRequest.ruleEngine}
+                />
+                <SummaryField label="AI/ML" value={change.aiRequest.aiMl} />
+                <SummaryField
+                  label="Human Review"
+                  value={change.aiRequest.human}
+                />
+                <SummaryField
+                  label="Statistical Modeling"
+                  value={change.aiRequest.statisticalModeling}
+                />
+                <SummaryField
+                  label="Problem Complexity"
+                  value={change.aiRequest.problemComplexity}
+                />
+                <SummaryField
+                  label="Problem Description"
+                  value={change.aiRequest.problemDescription}
+                  full
+                />
+                <SummaryField
+                  label="Current Solution"
+                  value={change.aiRequest.currentSolution}
+                  full
+                />
+                <SummaryField
+                  label="Success Metrics"
+                  value={change.aiRequest.successMetrics}
+                  full
+                />
+                <SummaryField
+                  label="Simpler Alternative"
+                  value={change.aiRequest.simplerAlternative}
+                />
+                <SummaryField
+                  label="Global Use"
+                  value={change.aiRequest.globalUse}
+                />
+                <SummaryField
+                  label="Requires Staff Data"
+                  value={change.aiRequest.requiresStaffData}
+                />
+                <SummaryField
+                  label="Requires Sensitive Data"
+                  value={change.aiRequest.requiresSensitiveData}
+                />
+                <SummaryField
+                  label="External Users"
+                  value={change.aiRequest.externalUsers}
+                />
+                <SummaryField
+                  label="Internal Only"
+                  value={change.aiRequest.internalOnly}
+                />
+                <SummaryField
+                  label="Both Users"
+                  value={change.aiRequest.bothUsers}
+                />
+                <SummaryField
+                  label="Duration"
+                  value={change.aiRequest.duration}
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -817,95 +1042,13 @@ export const ChangeDetail: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {change.testSteps.map((step) => (
-              <div
-                key={step.id}
-                className={cn(
-                  "rounded-lg border p-3",
-                  step.result === "pass" &&
-                    "border-green-200 bg-green-50/30 dark:border-green-900/40 dark:bg-green-950/10",
-                  step.result === "fail" &&
-                    "border-red-200 bg-red-50/30 dark:border-red-900/40 dark:bg-red-950/10",
-                  step.result === "pending" && "bg-secondary",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p className="text-primary-alpha text-sm font-medium">
-                      {step.description}
-                    </p>
-                    <p className="text-fade-2 mt-0.5 text-xs">
-                      Expected: {step.expectedOutcome}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {step.result === "pending" ? (
-                      <Tag value="pending">Pending</Tag>
-                    ) : step.result === "pass" ? (
-                      <Tag value="pass">Pass</Tag>
-                    ) : (
-                      <Tag value="fail">Fail</Tag>
-                    )}
-                  </div>
-                </div>
-
-                {canTest && (
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <Button
-                      size="small"
-                      type={step.result === "pass" ? "primary" : "default"}
-                      className={
-                        step.result === "pass"
-                          ? "!bg-green-600 !border-green-600"
-                          : ""
-                      }
-                      onClick={() => handleTestStepToggle(step.id, "pass")}
-                    >
-                      <FaCheck className="mr-1 h-3 w-3" />
-                      Pass
-                    </Button>
-                    <Button
-                      size="small"
-                      danger
-                      type={step.result === "fail" ? "primary" : "default"}
-                      onClick={() => handleTestStepToggle(step.id, "fail")}
-                    >
-                      <FaXmark className="mr-1 h-3 w-3" />
-                      Fail
-                    </Button>
-                    <Input
-                      size="small"
-                      placeholder="Notes..."
-                      value={testNotes[step.id] ?? step.notes}
-                      onChange={(e) =>
-                        setTestNotes((prev) => ({
-                          ...prev,
-                          [step.id]: e.target.value,
-                        }))
-                      }
-                      className="ml-2 flex-1"
-                    />
-                  </div>
-                )}
-
-                {step.completedBy && (
-                  <p className="text-fade-2 mt-2 text-xs">
-                    Completed by{" "}
-                    {users.find((u) => u.id === step.completedBy)?.name ||
-                      step.completedBy}
-                    {step.completedAt && (
-                      <>
-                        {" "}
-                        on{" "}
-                        {dayjs(step.completedAt).format("MMM D, YYYY h:mm A")}
-                      </>
-                    )}
-                    {step.notes && <> &mdash; {step.notes}</>}
-                  </p>
-                )}
-              </div>
-            ))}
+          <div className="border-border overflow-hidden rounded-2xl border">
+            <DataTable
+              dataSource={change.testSteps as any}
+              columns={testStepColumns as any}
+              pagination={false}
+              cardClassName="shadow-none! border-none! rounded-none! bg-transparent!"
+            />
           </div>
         )}
 
@@ -967,19 +1110,13 @@ export const ChangeDetail: React.FC = () => {
     <div className="space-y-6 pt-2">
       {!isDeployed && canDeploy && (
         <div className="space-y-4">
-          <Descriptions
-            bordered
-            size="small"
-            column={1}
-            labelStyle={{ fontWeight: 600, fontSize: 12 }}
-          >
-            <Descriptions.Item label="Deployed By">
-              {currentUser.name}
-            </Descriptions.Item>
-            <Descriptions.Item label="Date/Time">
-              {dayjs().format("MMM D, YYYY h:mm A")}
-            </Descriptions.Item>
-          </Descriptions>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SummaryField label="Deployed By" value={currentUser.name} />
+            <SummaryField
+              label="Date/Time"
+              value={dayjs().format("MMM D, YYYY h:mm A")}
+            />
+          </div>
 
           <div className="space-y-1.5">
             <span className="text-fade-2 text-xs font-semibold tracking-wider uppercase">
@@ -1009,41 +1146,47 @@ export const ChangeDetail: React.FC = () => {
 
       {isDeployed && change.deployment && (
         <div className="space-y-6">
-          <Descriptions
-            bordered
-            size="small"
-            column={{ xs: 1, sm: 2 }}
-            labelStyle={{ fontWeight: 600, fontSize: 12 }}
-          >
-            <Descriptions.Item label="Deployed By">
-              {change.deployment.deployedBy}
-            </Descriptions.Item>
-            <Descriptions.Item label="Deployed At">
-              {dayjs(change.deployment.deployedAt).format("MMM D, YYYY h:mm A")}
-            </Descriptions.Item>
-            <Descriptions.Item label="Notes" span={2}>
-              {change.deployment.notes || "No notes"}
-            </Descriptions.Item>
-            <Descriptions.Item label="Verification">
-              {change.deployment.verificationStatus === "pending" && (
-                <Tag value="pending">Pending</Tag>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SummaryField
+              label="Deployed By"
+              value={change.deployment.deployedBy}
+            />
+            <SummaryField
+              label="Deployed At"
+              value={dayjs(change.deployment.deployedAt).format(
+                "MMM D, YYYY h:mm A",
               )}
-              {change.deployment.verificationStatus === "confirmed" && (
-                <Tag value="approved">Confirmed Working</Tag>
-              )}
-              {change.deployment.verificationStatus === "issues_found" && (
-                <Tag value="rejected">Issues Found</Tag>
-              )}
-            </Descriptions.Item>
-            {change.deployment.signedOffBy && (
-              <Descriptions.Item label="Signed Off By">
-                {change.deployment.signedOffBy} on{" "}
-                {dayjs(change.deployment.signedOffAt).format(
-                  "MMM D, YYYY h:mm A",
+            />
+            <SummaryField
+              label="Notes"
+              value={change.deployment.notes || "No notes"}
+              full
+            />
+            <div>
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Verification
+              </span>
+              <div className="mt-1">
+                {change.deployment.verificationStatus === "pending" && (
+                  <Tag value="pending">Pending</Tag>
                 )}
-              </Descriptions.Item>
+                {change.deployment.verificationStatus === "confirmed" && (
+                  <Tag value="approved">Confirmed Working</Tag>
+                )}
+                {change.deployment.verificationStatus === "issues_found" && (
+                  <Tag value="rejected">Issues Found</Tag>
+                )}
+              </div>
+            </div>
+            {change.deployment.signedOffBy && (
+              <SummaryField
+                label="Signed Off By"
+                value={`${change.deployment.signedOffBy} on ${dayjs(
+                  change.deployment.signedOffAt,
+                ).format("MMM D, YYYY h:mm A")}`}
+              />
             )}
-          </Descriptions>
+          </div>
 
           {/* Post-deployment verification */}
           {change.deployment.verificationStatus === "pending" && (
@@ -1139,25 +1282,34 @@ export const ChangeDetail: React.FC = () => {
           </Button>
         </div>
       ) : change.rollbackPlan ? (
-        <Descriptions
-          bordered
-          size="small"
-          column={1}
-          labelStyle={{ fontWeight: 600, fontSize: 12 }}
-        >
-          <Descriptions.Item label="Steps">
-            <p className="whitespace-pre-wrap">{change.rollbackPlan.steps}</p>
-          </Descriptions.Item>
-          <Descriptions.Item label="Responsible Person">
-            {change.rollbackPlan.responsiblePerson}
-          </Descriptions.Item>
-          <Descriptions.Item label="Estimated Time">
-            {change.rollbackPlan.estimatedTime}
-          </Descriptions.Item>
-          <Descriptions.Item label="Dependencies">
-            {change.rollbackPlan.dependencies}
-          </Descriptions.Item>
-        </Descriptions>
+        <div className="space-y-4">
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Steps
+            </span>
+            <span className="text-fade mt-1 block whitespace-pre-wrap leading-relaxed font-medium">
+              {change.rollbackPlan.steps}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SummaryField
+              label="Responsible Person"
+              value={change.rollbackPlan.responsiblePerson}
+            />
+            <SummaryField
+              label="Estimated Time"
+              value={change.rollbackPlan.estimatedTime}
+            />
+          </div>
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Dependencies
+            </span>
+            <span className="text-fade mt-1 block whitespace-pre-wrap leading-relaxed font-medium">
+              {change.rollbackPlan.dependencies}
+            </span>
+          </div>
+        </div>
       ) : (
         <p className="text-fade-2 text-sm italic">No rollback plan defined.</p>
       )}
@@ -1222,8 +1374,8 @@ export const ChangeDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Global actions: Expand/Collapse All */}
-        <div className="flex items-center gap-2">
+        {/* Global actions: Expand/Collapse All + Edit */}
+        <div className="flex flex-wrap items-center gap-2">
           <Tooltip title={isAllExpanded ? "Collapse All" : "Expand All"}>
             <Button
               htmlType="button"
@@ -1238,6 +1390,67 @@ export const ChangeDetail: React.FC = () => {
               className="text-body-sm border-border text-fade h-11! w-11! rounded-lg! px-5! leading-none! font-semibold!"
             />
           </Tooltip>
+
+          {isEditing && (
+            <>
+              <Button
+                htmlType="button"
+                onClick={cancelEditing}
+                className="text-body-sm border-border text-fade h-11! rounded-lg! px-5! font-semibold!"
+              >
+                Cancel Changes
+              </Button>
+              <Button
+                htmlType="button"
+                type="primary"
+                onClick={saveEditing}
+                icon={<FaFloppyDisk className="h-4 w-4" />}
+                className="text-body-sm bg-primary hover:bg-primary/90 h-11! rounded-lg! border-none! px-5! leading-none! font-semibold! text-white"
+              >
+                Save Changes
+              </Button>
+            </>
+          )}
+
+          {canEdit && !isEditing && (
+            <Tooltip title="Edit Request">
+              <Button
+                htmlType="button"
+                onClick={startEditing}
+                icon={<FaPenToSquare className="h-4 w-4" />}
+                className="text-body-sm h-11! w-11! rounded-lg! px-5! font-semibold!"
+              />
+            </Tooltip>
+          )}
+
+          {canApprove && !isEditing && (
+            <>
+              <Button
+                htmlType="button"
+                type="primary"
+                onClick={() => setApproverAction("approve")}
+                className="text-body-sm h-11! rounded-lg! border-none! bg-emerald-600! px-5! font-semibold! text-white hover:bg-emerald-700!"
+              >
+                Approve
+              </Button>
+              <Button
+                htmlType="button"
+                type="primary"
+                onClick={() => setApproverAction("query")}
+                className="text-body-sm h-11! rounded-lg! border-none! bg-amber-600! px-5! font-semibold! text-white hover:bg-amber-700!"
+              >
+                Query
+              </Button>
+              <Button
+                htmlType="button"
+                type="primary"
+                onClick={() => setApproverAction("decline")}
+                className="text-body-sm h-11! rounded-lg! border-none! bg-red-600! px-5! font-semibold! text-white hover:bg-red-700!"
+              >
+                Decline
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1340,229 +1553,203 @@ export const ChangeDetail: React.FC = () => {
 
         {/* Right Column: Approvals, Audit Trail, Comments */}
         <div className="flex flex-col gap-6">
-          {/* Submit Decision (if active) */}
-          {canApprove && (
-            <div className="card space-y-4 p-5">
-              <div className="border-b pb-3">
-                <h3 className="text-primary-alpha flex items-center gap-2 text-sm font-bold">
-                  <FaCheck className="text-green-500 h-4 w-4" />
-                  Submit Decision
-                </h3>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <Label>Decision</Label>
-                  <Radio.Group
-                    value={approvalAction}
-                    onChange={(e) => setApprovalAction(e.target.value)}
-                    className="flex flex-col gap-2 mt-1"
-                  >
-                    <Radio value="approved">Approve</Radio>
-                    <Radio value="rejected">Reject</Radio>
-                    <Radio value="info_requested">Request More Info</Radio>
-                  </Radio.Group>
-                </div>
-
-                <div>
-                  <Label>Comment</Label>
-                  <TextArea
-                    rows={3}
-                    value={approvalComment}
-                    onChange={(e) => setApprovalComment(e.target.value)}
-                    placeholder="Add a comment for the requester..."
-                    className={FORM.TEXTAREA_CLASS_NAME}
-                  />
-                </div>
-
-                {(isAdmin || currentUser.department === "IT") && (
-                  <div className="space-y-4 border-t pt-3 border-border/40">
-                    <div>
-                      <Label>Implementation Executor</Label>
-                      <Radio.Group
-                        value={handledInHouse}
-                        onChange={(e) => setHandledInHouse(e.target.value)}
-                        className="flex gap-4 mt-1"
-                      >
-                        <Radio value={true}>In-house</Radio>
-                        <Radio value={false}>Externally</Radio>
-                      </Radio.Group>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Checkbox
-                        checked={costInvolved}
-                        onChange={(e) => setCostInvolved(e.target.checked)}
-                      >
-                        Cost involved?
-                      </Checkbox>
-                      {costInvolved && (
-                        <div className="pt-1">
-                          <InputNumber
-                            min={0}
-                            value={estimatedCost}
-                            onChange={(val) => setEstimatedCost(val || 0)}
-                            prefix="$"
-                            placeholder="Estimated cost"
-                            className={cn(FORM.CLASS_NAME, "w-full!")}
-                          />
-                        </div>
-                      )}
-                    </div>
+          {/* Workflow History (approval + audit trail, unified) */}
+          <Collapse
+            activeKey={expanded.workflow ? ["workflow"] : []}
+            onChange={(keys) =>
+              setExpanded((prev) => ({
+                ...prev,
+                workflow: keys.includes("workflow"),
+              }))
+            }
+            items={[
+              {
+                key: "workflow",
+                label: (
+                  <div className="flex items-center gap-2.5">
+                    <FaClockRotateLeft className="text-primary h-5 w-5" />
+                    <span>Workflow History</span>
                   </div>
-                )}
+                ),
+                children:
+                  change.timeline.length === 0 ? (
+                    <p className="text-fade-2 text-sm italic">
+                      No events yet.
+                    </p>
+                  ) : (
+                    <div className="border-border-muted relative space-y-6 border-l pl-4">
+                      {change.timeline.map((event, idx) => (
+                        <div key={idx} className="relative">
+                          <span
+                            className="absolute top-1.5 left-[-24px] h-4 w-4 rounded-full border-2 border-white"
+                            style={{
+                              backgroundColor: getEventColor(event.action),
+                            }}
+                          />
+                          <div className="flex flex-wrap items-center justify-between gap-1">
+                            <span className="text-primary-alpha text-sm font-bold">
+                              {event.actorName}
+                            </span>
+                            <span className="text-fade-2 text-[11px] font-medium">
+                              {dayjs(event.timestamp).format(
+                                "MMM D, YYYY h:mm A",
+                              )}
+                            </span>
+                          </div>
+                          <p className="text-fade-2 mt-0.5 text-xs font-medium">
+                            Stage: {event.stage}
+                          </p>
+                          <div className="mt-1.5">
+                            <Tag
+                              color={getEventColor(event.action)}
+                              format={false}
+                            >
+                              {event.action}
+                            </Tag>
+                          </div>
+                          <p className="text-fade mt-1.5 text-xs italic">
+                            "{event.comment || "No comment provided."}"
+                          </p>
+                          {(event.handledInHouse !== undefined ||
+                            event.costInvolved) && (
+                            <div className="text-fade-2 border-border-muted mt-1.5 flex flex-wrap gap-3 border-t pt-1.5 text-[10px] font-medium">
+                              {event.handledInHouse !== undefined && (
+                                <span>
+                                  Handled:{" "}
+                                  {event.handledInHouse
+                                    ? "In-house"
+                                    : "Externally"}
+                                </span>
+                              )}
+                              {event.costInvolved && (
+                                <span>
+                                  Cost: $
+                                  {event.estimatedCost?.toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ),
+              },
+            ]}
+          />
 
-                <Button
-                  type="primary"
-                  onClick={handleApprovalSubmit}
-                  className="w-full"
-                >
-                  <FaPaperPlane className="mr-1.5 h-3 w-3" />
-                  Submit Decision
-                </Button>
-              </div>
+        </div>
+      </div>
+
+      {/* Approver Action Modal */}
+      <Modal
+        open={!!approverAction}
+        onCancel={() => {
+          setApproverAction(null);
+          setActionComment("");
+          setActionError("");
+        }}
+        title={
+          approverAction === "approve"
+            ? "Approve Change Request"
+            : approverAction === "query"
+              ? "Query Change Request"
+              : "Decline Change Request"
+        }
+        okText={
+          approverAction === "approve"
+            ? "Approve"
+            : approverAction === "query"
+              ? "Query"
+              : "Decline"
+        }
+        cancelText="Cancel"
+        okButtonProps={{
+          className: cn(
+            "border-none! text-white! font-semibold",
+            approverAction === "approve" &&
+              "bg-emerald-600 hover:bg-emerald-700",
+            approverAction === "query" && "bg-amber-600 hover:bg-amber-700",
+            approverAction === "decline" && "bg-red-600 hover:bg-red-700",
+          ),
+        }}
+        cancelButtonProps={{
+          className: "border-border! text-primary-alpha! hover:bg-bg-muted!",
+        }}
+        onOk={() => {
+          if (approverAction) {
+            handleSubmitAction(approverAction);
+          }
+        }}
+        width={550}
+        centered
+      >
+        <div className="space-y-4 py-4">
+          {actionError && (
+            <div className="text-body-xs flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 p-3 font-semibold text-red-600 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-400">
+              <FaTriangleExclamation className="h-4 w-4 shrink-0" />
+              <span>{actionError}</span>
             </div>
           )}
 
-          {/* Approval History */}
-          <div className="card space-y-4 p-5">
-            <div className="border-b pb-3">
-              <h3 className="text-primary-alpha text-sm font-bold">
-                Approval History
-              </h3>
-            </div>
-            {change.approvals.length === 0 ? (
-              <p className="text-fade-2 text-xs italic">No approvals yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {change.approvals.map((a, i) => (
-                  <div
-                    key={i}
-                    className="bg-secondary flex items-start gap-3 rounded-lg border p-3 text-xs"
+          <div className="space-y-2">
+            <Label className="text-fade">
+              {approverAction === "approve"
+                ? "Comments (Optional)"
+                : "Reason / Comments (Mandatory)"}
+            </Label>
+            <TextArea
+              value={actionComment}
+              onChange={(e) => setActionComment(e.target.value)}
+              placeholder={
+                approverAction === "approve"
+                  ? "Add any approval notes here..."
+                  : "Provide the reason for this action..."
+              }
+              rows={4}
+              required={approverAction !== "approve"}
+              className={FORM.TEXTAREA_CLASS_NAME}
+            />
+          </div>
+
+          {approverAction === "approve" &&
+            (isAdmin || currentUser.department === "IT") && (
+              <div className="space-y-4 border-t border-border/40 pt-3">
+                <div>
+                  <Label>Implementation Executor</Label>
+                  <Radio.Group
+                    value={handledInHouse}
+                    onChange={(e) => setHandledInHouse(e.target.value)}
+                    className="flex gap-4 mt-1"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-primary-alpha font-semibold truncate">
-                          {a.approverName}
-                        </span>
-                        {approvalActionLabel(a.action)}
-                      </div>
-                      {a.comment && (
-                        <p className="text-fade mt-1.5 italic">"{a.comment}"</p>
-                      )}
-                      <div className="text-fade-2 mt-2 flex flex-col gap-1 text-[10px] border-t border-border/40 pt-1.5">
-                        <span>
-                          {dayjs(a.timestamp).format("MMM D, YYYY h:mm A")}
-                        </span>
-                        {a.handledInHouse !== undefined && (
-                          <span>
-                            Handled:{" "}
-                            {a.handledInHouse ? "In-house" : "Externally"}
-                          </span>
-                        )}
-                        {a.costInvolved && (
-                          <span>
-                            Cost: ${a.estimatedCost?.toLocaleString()}
-                          </span>
-                        )}
-                      </div>
+                    <Radio value={true}>In-house</Radio>
+                    <Radio value={false}>Externally</Radio>
+                  </Radio.Group>
+                </div>
+
+                <div className="space-y-2">
+                  <Checkbox
+                    checked={costInvolved}
+                    onChange={(e) => setCostInvolved(e.target.checked)}
+                  >
+                    Cost involved?
+                  </Checkbox>
+                  {costInvolved && (
+                    <div className="pt-1">
+                      <InputNumber
+                        min={0}
+                        value={estimatedCost}
+                        onChange={(val) => setEstimatedCost(val || 0)}
+                        prefix="$"
+                        placeholder="Estimated cost"
+                        className={cn(FORM.CLASS_NAME, "w-full!")}
+                      />
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
             )}
-          </div>
-
-          {/* Timeline & Audit Trail */}
-          <div className="card space-y-4 p-5">
-            <div className="border-b pb-3">
-              <h3 className="text-primary-alpha flex items-center gap-2 text-sm font-bold">
-                <FaClockRotateLeft className="text-primary h-4.5 w-4.5" />
-                Audit Trail
-              </h3>
-            </div>
-            {change.timeline.length === 0 ? (
-              <p className="text-fade-2 text-xs italic">No events yet.</p>
-            ) : (
-              <div className="relative space-y-0 text-xs max-h-[350px] overflow-y-auto custom-scrollbar pr-1">
-                {change.timeline.map((event, idx) => (
-                  <div key={idx} className="relative flex gap-3 pb-5">
-                    {/* Line */}
-                    {idx < change.timeline.length - 1 && (
-                      <div className="absolute left-[9px] top-5 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
-                    )}
-                    {/* Dot */}
-                    <div className="relative z-10 mt-1 h-[18px] w-[18px] shrink-0 rounded-full border-2 border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950" />
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center justify-between gap-1">
-                        <span className="text-primary-alpha font-semibold truncate">
-                          {event.actorName}
-                        </span>
-                        <span className="text-fade-2 text-[10px]">
-                          {dayjs(event.timestamp).fromNow()}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                        <span className="text-fade-2 font-medium">
-                          {event.action}
-                        </span>
-                        <Tag
-                          value={event.stage}
-                          format={false}
-                          className="px-1! py-0.5! text-[9px]! leading-none!"
-                        >
-                          {event.stage}
-                        </Tag>
-                      </div>
-                      {event.comment && (
-                        <p className="text-fade-2 mt-1 italic text-[11px]">
-                          "{event.comment}"
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Comments Discussion */}
-          <div className="card space-y-4 p-5">
-            <div className="border-b pb-3">
-              <h3 className="text-primary-alpha text-sm font-bold">Comments</h3>
-            </div>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
-              {topLevelComments.length === 0 && (
-                <p className="text-fade-2 text-xs italic">No comments yet.</p>
-              )}
-              {topLevelComments.map((c) => renderComment(c))}
-            </div>
-
-            {/* Add comment form */}
-            <div className="mt-3 border-t pt-3">
-              <Label className="text-xs">Add Comment</Label>
-              <div className="flex flex-col gap-2 mt-1">
-                <TextArea
-                  rows={2}
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Write a comment..."
-                  className={cn(FORM.TEXTAREA_CLASS_NAME, "w-full")}
-                />
-                <Button
-                  type="primary"
-                  onClick={() => handleAddComment()}
-                  className="w-full flex items-center justify-center gap-1.5"
-                  disabled={!newComment.trim()}
-                >
-                  <FaPaperPlane className="h-3 w-3" />
-                  Send Comment
-                </Button>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
+      </Modal>
     </div>
   );
 };

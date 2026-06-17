@@ -14,6 +14,7 @@ import {
 } from "react-icons/fa";
 import { BiSolidUser } from "react-icons/bi";
 import { Tooltip } from "antd";
+import SidebarIllustration from "../../assets/sidebar-illus.svg?react";
 
 interface SideBarProps {
   collapsed: boolean;
@@ -91,7 +92,11 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       visible: isRole(["Admin"]),
       items: [
         { name: "Categories", path: "/settings/categories", icon: FaListAlt },
-        { name: "Risk Levels", path: "/settings/risk-levels", icon: FaShieldAlt },
+        {
+          name: "Risk Levels",
+          path: "/settings/risk-levels",
+          icon: FaShieldAlt,
+        },
         { name: "Systems", path: "/settings/systems", icon: FaServer },
         { name: "Users", path: "/settings/users", icon: FaUsersCog },
       ],
@@ -244,7 +249,7 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
           )}
         </button>
       </div>
-      {/* <SidebarIllustration className="pointer-events-none absolute right-0 bottom-0 z-0" /> */}
+      <SidebarIllustration className="pointer-events-none absolute right-0 bottom-0 z-0" />
     </aside>
   );
 };

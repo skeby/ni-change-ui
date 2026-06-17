@@ -14,7 +14,9 @@ export type ChangeStatus =
   | "Closed"
   | "Rolled Back"
 
-export type RiskLevel = "Low" | "Medium" | "High"
+// References a RiskLevelConfig.name in the settings slice — an open,
+// admin-managed list rather than a fixed union.
+export type RiskLevel = string
 
 export type ChangeCategory =
   | "New Feature"
@@ -31,6 +33,9 @@ export interface TimelineEvent {
   action: string
   timestamp: string
   comment?: string
+  handledInHouse?: boolean
+  costInvolved?: boolean
+  estimatedCost?: number
 }
 
 export interface Comment {

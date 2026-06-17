@@ -10,7 +10,7 @@ export interface SystemOption {
 export interface CategoryOption {
   id: string
   name: string
-  defaultRisk: "Low" | "Medium" | "High"
+  defaultRisk: string // references a RiskLevelConfig.name
   active: boolean
 }
 
@@ -24,7 +24,8 @@ export interface ApprovalStage {
 
 export interface RiskLevelConfig {
   id: string
-  level: "Low" | "Medium" | "High"
+  name: string
+  severity: number // ordinal rank; lower = less risky. Drives sort order and tag color (derived relative to other levels).
   maxEscalationHours: number
   escalateTo: string
   approvalStages: ApprovalStage[]
@@ -66,14 +67,16 @@ const initialState: SettingsState = {
   riskLevels: [
     {
       id: "risk-low",
-      level: "Low",
+      name: "Low",
+      severity: 1,
       maxEscalationHours: 24,
       escalateTo: "marcus.v@company.com",
       approvalStages: [{ id: "stg-low-1", type: "generic" }],
     },
     {
       id: "risk-medium",
-      level: "Medium",
+      name: "Medium",
+      severity: 2,
       maxEscalationHours: 48,
       escalateTo: "adeyinka@company.com",
       approvalStages: [
@@ -82,7 +85,8 @@ const initialState: SettingsState = {
     },
     {
       id: "risk-high",
-      level: "High",
+      name: "High",
+      severity: 3,
       maxEscalationHours: 48,
       escalateTo: "adeyinka@company.com",
       approvalStages: [
@@ -126,12 +130,18 @@ const settingsSlice = createSlice({
     removeCategory: (state, action: PayloadAction<string>) => {
       state.categories = state.categories.filter((c) => c.id !== action.payload)
     },
+    addRiskLevel: (state, action: PayloadAction<RiskLevelConfig>) => {
+      state.riskLevels.push(action.payload)
+    },
     updateRiskLevel: (
       state,
       action: PayloadAction<{ id: string; updates: Partial<RiskLevelConfig> }>
     ) => {
       const level = state.riskLevels.find((r) => r.id === action.payload.id)
       if (level) Object.assign(level, action.payload.updates)
+    },
+    removeRiskLevel: (state, action: PayloadAction<string>) => {
+      state.riskLevels = state.riskLevels.filter((r) => r.id !== action.payload)
     },
     updateTestChecklist: (state, action: PayloadAction<{ id: string; items: string[] }>) => {
       const checklist = state.testChecklists.find((c) => c.id === action.payload.id)
@@ -147,7 +157,9 @@ export const {
   addCategory,
   updateCategory,
   removeCategory,
+  addRiskLevel,
   updateRiskLevel,
+  removeRiskLevel,
   updateTestChecklist,
 } = settingsSlice.actions
 export default settingsSlice.reducer

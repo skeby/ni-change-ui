@@ -5,6 +5,7 @@ import { FaUser, FaChevronRight, FaServer, FaTrash } from "react-icons/fa6"
 import Tag from "./tag"
 import { Utils } from "../../utils"
 import { colorMap } from "../../static"
+import { useAppSelector } from "../../state/store"
 import type { ChangeRequest } from "../../state/slices/changes-slice"
 
 export interface ChangeCardProps {
@@ -21,6 +22,7 @@ export const ChangeCard: React.FC<ChangeCardProps> = ({
   onDeleteDraft,
 }) => {
   const navigate = useNavigate()
+  const { riskLevels } = useAppSelector((state) => state.settings)
 
   const handleCardClick = () => {
     if (change.status === "Draft") {
@@ -112,7 +114,10 @@ export const ChangeCard: React.FC<ChangeCardProps> = ({
             <div className="text-fade-2 mb-1 text-[10px] leading-none font-semibold tracking-wider uppercase">
               Risk Level
             </div>
-            <Tag value={change.riskLevel} className="px-2! py-0.5! text-[10px]!">
+            <Tag
+              color={Utils.resolveRiskColor(riskLevels, change.riskLevel)}
+              className="px-2! py-0.5! text-[10px]!"
+            >
               {change.riskLevel}
             </Tag>
           </div>

@@ -1,7 +1,8 @@
-import React, { useMemo } from "react"
+import React, { useState, useMemo } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAppSelector } from "../state/store"
 import { useTheme } from "../hooks"
+import { Select } from "antd"
 import {
   BarChart,
   Bar,
@@ -25,6 +26,7 @@ import {
   ShieldCheck,
   CheckCircle,
 } from "lucide-react"
+import { Utils } from "../utils"
 
 // Status color map
 const STATUS_COLORS: Record<string, string> = {
@@ -42,12 +44,6 @@ const STATUS_COLORS: Record<string, string> = {
   "Rolled Back": "#DC2626",
 }
 
-const RISK_COLORS: Record<string, string> = {
-  Low: "#10B981",
-  Medium: "#D97706",
-  High: "#EF4444",
-}
-
 const CATEGORY_COLORS: string[] = [
   "#A4343A",
   "#2563EB",
@@ -61,6 +57,11 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate()
   const { isDarkMode } = useTheme()
   const { changes } = useAppSelector((state) => state.changes)
+  const { riskLevels } = useAppSelector((state) => state.settings)
+  const sortedRiskLevels = useMemo(
+    () => [...riskLevels].sort((a, b) => a.severity - b.severity),
+    [riskLevels]
+  )
 
   // ── Metric calculations ──────────────────────────────────────────────
 
@@ -154,27 +155,75 @@ export const Dashboard: React.FC = () => {
     return months
   }, [changes])
 
+  // Helper for generating month options (Jan 2026 to current month)
+  const monthOptions = useMemo(() => {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() // 0-indexed
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]
+    const options = []
+    for (let m = 0; m <= currentMonth; m++) {
+      const monthStr = `${currentYear}-${String(m + 1).padStart(2, "0")}`
+      options.push({
+        value: monthStr,
+        label: `${monthNames[m]} ${currentYear}`,
+      })
+    }
+    return options
+  }, [])
+
+  const currentMonthValue = useMemo(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  }, [])
+
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([
+    currentMonthValue,
+  ])
+
   // Pie: by status
   const statusPieData = useMemo(() => {
     const counts: Record<string, number> = {}
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        counts[c.status] = (counts[c.status] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7)
+        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
+          counts[c.status] = (counts[c.status] || 0) + 1
+        }
       })
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [changes])
+  }, [changes, selectedMonths])
 
   // Bar: by risk level
   const riskBarData = useMemo(() => {
-    const counts: Record<string, number> = { Low: 0, Medium: 0, High: 0 }
+    const counts: Record<string, number> = {}
+    sortedRiskLevels.forEach((r) => {
+      counts[r.name] = 0
+    })
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        counts[c.riskLevel] = (counts[c.riskLevel] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7)
+        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
+          counts[c.riskLevel] = (counts[c.riskLevel] || 0) + 1
+        }
       })
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [changes])
+  }, [changes, sortedRiskLevels, selectedMonths])
 
   // Bar: by category
   const categoryBarData = useMemo(() => {
@@ -182,10 +231,13 @@ export const Dashboard: React.FC = () => {
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        counts[c.category] = (counts[c.category] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7)
+        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
+          counts[c.category] = (counts[c.category] || 0) + 1
+        }
       })
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [changes])
+  }, [changes, selectedMonths])
 
   // Stacked bar: by department
   const departmentData = useMemo(() => {
@@ -193,17 +245,20 @@ export const Dashboard: React.FC = () => {
     changes
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        if (!deptStatus[c.submitterDepartment]) {
-          deptStatus[c.submitterDepartment] = {}
+        const changeMonth = c.createdAt.substring(0, 7)
+        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
+          if (!deptStatus[c.submitterDepartment]) {
+            deptStatus[c.submitterDepartment] = {}
+          }
+          deptStatus[c.submitterDepartment][c.status] =
+            (deptStatus[c.submitterDepartment][c.status] || 0) + 1
         }
-        deptStatus[c.submitterDepartment][c.status] =
-          (deptStatus[c.submitterDepartment][c.status] || 0) + 1
       })
     return Object.entries(deptStatus).map(([dept, statuses]) => ({
       department: dept,
       ...statuses,
     }))
-  }, [changes])
+  }, [changes, selectedMonths])
 
   const allStatuses = useMemo(
     () =>
@@ -361,35 +416,53 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Pie: by Status */}
         <div className="card space-y-4 p-6">
-          <div>
-            <h2 className="card-title">By Status</h2>
-            <p className="card-description">
-              Distribution of change requests by current status.
-            </p>
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-3">
+            <div>
+              <h2 className="card-title">By Status</h2>
+              <p className="card-description">
+                Distribution of change requests by current status.
+              </p>
+            </div>
+            <Select
+              mode="multiple"
+              maxTagCount="responsive"
+              placeholder="Select months"
+              value={selectedMonths}
+              onChange={setSelectedMonths}
+              style={{ minWidth: 160, maxWidth: "100%" }}
+              options={monthOptions}
+              allowClear
+            />
           </div>
           <div className="flex h-56 w-full items-center">
             <div className="h-full w-1/2">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={statusPieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {statusPieData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={STATUS_COLORS[entry.name] || "#6b7280"}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                </PieChart>
-              </ResponsiveContainer>
+              {statusPieData.length === 0 ? (
+                <div className="text-body-sm text-fade-2 flex h-full items-center justify-center">
+                  No change data for selected period.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {statusPieData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={STATUS_COLORS[entry.name] || "#6b7280"}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
             <div className="w-1/2 space-y-1.5">
               {statusPieData.map((item) => (
@@ -415,142 +488,196 @@ export const Dashboard: React.FC = () => {
 
         {/* Bar: by Risk Level */}
         <div className="card space-y-4 p-6">
-          <div>
-            <h2 className="card-title">By Risk Level</h2>
-            <p className="card-description">
-              Change requests grouped by assessed risk.
-            </p>
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-3">
+            <div>
+              <h2 className="card-title">By Risk Level</h2>
+              <p className="card-description">
+                Change requests grouped by assessed risk.
+              </p>
+            </div>
+            <Select
+              mode="multiple"
+              maxTagCount="responsive"
+              placeholder="Select months"
+              value={selectedMonths}
+              onChange={setSelectedMonths}
+              style={{ minWidth: 160, maxWidth: "100%" }}
+              options={monthOptions}
+              allowClear
+            />
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={riskBarData}
-                margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke={gridStroke}
-                />
-                <XAxis
-                  dataKey="name"
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                />
-                <YAxis
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40}>
-                  {riskBarData.map((entry, index) => (
-                    <Cell
-                      key={`risk-${index}`}
-                      fill={RISK_COLORS[entry.name] || "#6b7280"}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {riskBarData.length === 0 ? (
+              <div className="text-body-sm text-fade-2 flex h-full items-center justify-center">
+                No change data for selected period.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={riskBarData}
+                  margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke={gridStroke}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke={axisStroke}
+                    fontSize={11}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    stroke={axisStroke}
+                    fontSize={11}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={40}>
+                    {riskBarData.map((entry, index) => (
+                      <Cell
+                        key={`risk-${index}`}
+                        fill={Utils.resolveRiskColor(riskLevels, entry.name)}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Bar: by Category */}
         <div className="card space-y-4 p-6">
-          <div>
-            <h2 className="card-title">By Category</h2>
-            <p className="card-description">
-              Breakdown of requests by change category.
-            </p>
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-3">
+            <div>
+              <h2 className="card-title">By Category</h2>
+              <p className="card-description">
+                Breakdown of requests by change category.
+              </p>
+            </div>
+            <Select
+              mode="multiple"
+              maxTagCount="responsive"
+              placeholder="Select months"
+              value={selectedMonths}
+              onChange={setSelectedMonths}
+              style={{ minWidth: 160, maxWidth: "100%" }}
+              options={monthOptions}
+              allowClear
+            />
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={categoryBarData}
-                margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke={gridStroke}
-                />
-                <XAxis
-                  dataKey="name"
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                />
-                <YAxis
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar
-                  dataKey="value"
-                  radius={[4, 4, 0, 0]}
-                  barSize={36}
+            {categoryBarData.length === 0 ? (
+              <div className="text-body-sm text-fade-2 flex h-full items-center justify-center">
+                No change data for selected period.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={categoryBarData}
+                  margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
                 >
-                  {categoryBarData.map((_, index) => (
-                    <Cell
-                      key={`cat-${index}`}
-                      fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke={gridStroke}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke={axisStroke}
+                    fontSize={11}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    stroke={axisStroke}
+                    fontSize={11}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar
+                    dataKey="value"
+                    radius={[4, 4, 0, 0]}
+                    barSize={36}
+                  >
+                    {categoryBarData.map((_, index) => (
+                      <Cell
+                        key={`cat-${index}`}
+                        fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Stacked Bar: by Department */}
         <div className="card space-y-4 p-6">
-          <div>
-            <h2 className="card-title">By Department</h2>
-            <p className="card-description">
-              Requests per department, broken down by status.
-            </p>
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-3">
+            <div>
+              <h2 className="card-title">By Department</h2>
+              <p className="card-description">
+                Requests per department, broken down by status.
+              </p>
+            </div>
+            <Select
+              mode="multiple"
+              maxTagCount="responsive"
+              placeholder="Select months"
+              value={selectedMonths}
+              onChange={setSelectedMonths}
+              style={{ minWidth: 160, maxWidth: "100%" }}
+              options={monthOptions}
+              allowClear
+            />
           </div>
           <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={departmentData}
-                margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke={gridStroke}
-                />
-                <XAxis
-                  dataKey="department"
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                />
-                <YAxis
-                  stroke={axisStroke}
-                  fontSize={11}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip contentStyle={tooltipStyle} />
-                {allStatuses.map((status) => (
-                  <Bar
-                    key={status}
-                    dataKey={status}
-                    stackId="dept"
-                    fill={STATUS_COLORS[status] || "#6b7280"}
-                    radius={[2, 2, 0, 0]}
-                    barSize={40}
+            {departmentData.length === 0 ? (
+              <div className="text-body-sm text-fade-2 flex h-full items-center justify-center">
+                No change data for selected period.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={departmentData}
+                  margin={{ top: 5, right: 5, left: -25, bottom: 5 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke={gridStroke}
                   />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+                  <XAxis
+                    dataKey="department"
+                    stroke={axisStroke}
+                    fontSize={11}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    stroke={axisStroke}
+                    fontSize={11}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  {allStatuses.map((status) => (
+                    <Bar
+                      key={status}
+                      dataKey={status}
+                      stackId="dept"
+                      fill={STATUS_COLORS[status] || "#6b7280"}
+                      radius={[2, 2, 0, 0]}
+                      barSize={40}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

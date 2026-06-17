@@ -1,120 +1,105 @@
-import React, { useEffect, useMemo } from "react"
-import { useNavigate } from "react-router-dom"
-import { Select, message } from "antd"
-import {
-  FileText,
-  Cpu,
-  ShieldCheck,
-  Shield,
-  ShieldAlert,
-  RotateCcw,
-  Send,
-  User,
-} from "lucide-react"
-import { useAppSelector, useAppDispatch } from "../../state/store"
-import { addChange, deleteChange } from "../../state/slices/changes-slice"
+import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Input, Select, Modal, message } from "antd";
+import { ShieldAlert, CheckCircle } from "lucide-react";
+import { useAppSelector, useAppDispatch } from "../../state/store";
+import { addChange, deleteChange } from "../../state/slices/changes-slice";
 import type {
   ChangeRequest,
-  RiskLevel,
   ResolvedApprovalStage,
-} from "../../state/slices/changes-slice"
-import { useWizard } from "./new-change-wizard"
-import { cn } from "../../utils/cn"
-import { FORM } from "../../static"
-
-const RISK_STYLES: Record<RiskLevel, { color: string; icon: React.ReactNode }> =
-  {
-    Low: {
-      color: "text-emerald-600 dark:text-emerald-400",
-      icon: <ShieldCheck className="h-4 w-4" />,
-    },
-    Medium: {
-      color: "text-amber-600 dark:text-amber-400",
-      icon: <Shield className="h-4 w-4" />,
-    },
-    High: {
-      color: "text-red-600 dark:text-red-400",
-      icon: <ShieldAlert className="h-4 w-4" />,
-    },
-  }
+} from "../../state/slices/changes-slice";
+import { useWizard } from "./new-change-wizard";
+import { cn } from "../../utils/cn";
+import { Utils } from "../../utils";
+import FormField from "../../components/ui/form-field";
+import Tag from "../../components/ui/tag";
+import type { FieldError } from "react-hook-form";
 
 const ReviewStep: React.FC = () => {
-  const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const { formData, setFormData, draftId } = useWizard()
-  const { changes } = useAppSelector((state) => state.changes)
-  const { currentUserId, users } = useAppSelector((state) => state.auth)
-  const riskLevels = useAppSelector((state) => state.settings.riskLevels)
-  const currentUser = users.find((u) => u.id === currentUserId)
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { formData, draftId } = useWizard();
+  const { changes } = useAppSelector((state) => state.changes);
+  const { currentUserId, users } = useAppSelector((state) => state.auth);
+  const riskLevels = useAppSelector((state) => state.settings.riskLevels);
+  const currentUser = users.find((u) => u.id === currentUserId);
 
-  const riskStyle = RISK_STYLES[formData.riskLevel] || RISK_STYLES.Low
+  const riskColor = Utils.resolveRiskColor(riskLevels, formData.riskLevel);
+  const isLowestSeverity =
+    riskLevels.length > 0 &&
+    riskLevels.find((r) => r.name === formData.riskLevel)?.severity ===
+      Math.min(...riskLevels.map((r) => r.severity));
+
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [approverSelections, setApproverSelections] = useState<
+    Record<string, string>
+  >({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   // Approver candidates: all users with Approver role except the current user
   const approverOptions = users
-    .filter(
-      (u) => u.id !== currentUserId && u.baseRoles.includes("Approver")
-    )
-    .map((u) => ({ label: `${u.name} (${u.department})`, value: u.id }))
+    .filter((u) => u.id !== currentUserId && u.baseRoles.includes("Approver"))
+    .map((u) => ({ label: `${u.name} (${u.department})`, value: u.id }));
 
   // Approval stages configured for this change's risk level
   const configuredStages = useMemo(
     () =>
-      riskLevels.find((r) => r.level === formData.riskLevel)?.approvalStages ??
+      riskLevels.find((r) => r.name === formData.riskLevel)?.approvalStages ??
       [],
-    [riskLevels, formData.riskLevel]
-  )
-  const stagesKey = useMemo(
-    () => JSON.stringify(configuredStages),
-    [configuredStages]
-  )
+    [riskLevels, formData.riskLevel],
+  );
 
-  // Keep the resolved approval plan in sync with the configured stages,
-  // preserving any approver already chosen for generic stages.
-  useEffect(() => {
-    setFormData((prev) => {
-      const priorById = new Map(
-        prev.approvalPlan.map((s) => [s.id, s.approverId])
-      )
-      const nextPlan: ResolvedApprovalStage[] = configuredStages.map((st) => ({
-        id: st.id,
-        type: st.type,
-        role: st.type === "role_based" ? st.role : undefined,
-        approverId:
-          st.type === "generic" ? priorById.get(st.id) : undefined,
-      }))
-      if (JSON.stringify(prev.approvalPlan) === JSON.stringify(nextPlan)) {
-        return prev
-      }
-      return { ...prev, approvalPlan: nextPlan }
-    })
-    // stagesKey captures configuredStages identity
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stagesKey, setFormData])
+  const routingExplanation = useMemo(() => {
+    if (configuredStages.length === 0) {
+      return {
+        icon: (
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+        ),
+        text: `No approval stages are configured for ${formData.riskLevel} risk changes yet. Contact an admin to configure this under Settings → Risk Levels before submitting.`,
+      };
+    }
+    if (isLowestSeverity) {
+      return {
+        icon: (
+          <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+        ),
+        text: "This is a low risk change. It will route directly to the approver you select below.",
+      };
+    }
+    return {
+      icon: <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />,
+      text: `This is a ${formData.riskLevel.toLowerCase()} risk change. It will follow the ${configuredStages.length}-stage approval chain below before it can proceed.`,
+    };
+  }, [configuredStages, formData.riskLevel, isLowestSeverity]);
 
-  const setStageApprover = (stageId: string, approverId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      approvalPlan: prev.approvalPlan.map((s) =>
-        s.id === stageId ? { ...s, approverId } : s
-      ),
-    }))
-  }
+  const handleTriggerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitAttempted(false);
+    setIsSubmitModalOpen(true);
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Every generic (requester-selected) stage must have an approver chosen
-    const missingApprover = formData.approvalPlan.some(
-      (s) => s.type === "generic" && !s.approverId
-    )
+  const handleConfirmSubmit = () => {
+    const missingApprover = configuredStages.some(
+      (s) => s.type === "generic" && !approverSelections[s.id],
+    );
     if (missingApprover) {
-      message.error("Select an approver for each requester-selected stage.")
-      return
+      setSubmitAttempted(true);
+      message.error("Select an approver for each requester-selected stage.");
+      return;
     }
 
-    const now = new Date().toISOString()
-    const submittedCount = changes.filter((c) => !c.id.startsWith("DRAFT")).length
-    const newId = `CR-${new Date().getFullYear()}-${String(submittedCount + 1).padStart(4, "0")}`
+    const now = new Date().toISOString();
+    const submittedCount = changes.filter(
+      (c) => !c.id.startsWith("DRAFT"),
+    ).length;
+    const newId = `CR-${new Date().getFullYear()}-${String(submittedCount + 1).padStart(4, "0")}`;
+
+    const approvalPlan: ResolvedApprovalStage[] = configuredStages.map((s) => ({
+      id: s.id,
+      type: s.type,
+      role: s.type === "role_based" ? s.role : undefined,
+      approverId: s.type === "generic" ? approverSelections[s.id] : undefined,
+    }));
 
     const changeRequest: ChangeRequest = {
       id: newId,
@@ -130,18 +115,17 @@ const ReviewStep: React.FC = () => {
       status: "Submitted",
       riskLevel: formData.riskLevel,
       riskOverridden: formData.riskOverridden,
-      riskOverrideJustification: formData.riskOverrideJustification || undefined,
+      riskOverrideJustification:
+        formData.riskOverrideJustification || undefined,
       autoAssignedRisk: formData.autoAssignedRisk,
-      approvalPlan: formData.approvalPlan,
-      selectedApprover:
-        formData.approvalPlan.find((s) => s.type === "generic")?.approverId,
+      approvalPlan,
+      selectedApprover: approvalPlan.find((s) => s.type === "generic")
+        ?.approverId,
       approvals: [],
-      aiRequest:
-        formData.category === "AI" ? formData.aiRequest : undefined,
-      rollbackPlan:
-        formData.rollbackPlan.steps
-          ? formData.rollbackPlan
-          : undefined,
+      aiRequest: formData.category === "AI" ? formData.aiRequest : undefined,
+      rollbackPlan: formData.rollbackPlan.steps
+        ? formData.rollbackPlan
+        : undefined,
       testPlan: "",
       testSteps: [],
       evidence: [],
@@ -165,64 +149,65 @@ const ReviewStep: React.FC = () => {
       isQueried: false,
       createdAt: now,
       updatedAt: now,
-    }
+    };
 
-    dispatch(deleteChange(draftId))
-    dispatch(addChange(changeRequest))
+    dispatch(deleteChange(draftId));
+    dispatch(addChange(changeRequest));
 
-    navigate("/self/changes")
-  }
+    message.success("Change request submitted");
+    setIsSubmitModalOpen(false);
+    navigate("/self/changes");
+  };
 
   return (
-    <form id="step-form" onSubmit={handleSubmit} className="space-y-6">
-      {/* Header */}
-      <div className="card p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-500 dark:bg-blue-950/30 dark:text-blue-400">
-            <Send className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="card-title mb-0.5">Review & Submit</h3>
-            <p className="card-description">
-              Review all details before submitting. Use the Previous button to go
-              back and make changes.
-            </p>
-          </div>
-        </div>
-      </div>
-
+    <form id="step-form" onSubmit={handleTriggerSubmit} className="space-y-6">
       {/* General Information Summary */}
       <div className="card space-y-4 p-6">
-        <div className="flex items-center gap-2">
-          <FileText className="text-primary h-4 w-4" />
-          <h4 className="text-body-md text-primary-alpha font-bold">
-            General Information
-          </h4>
-        </div>
-        <div className="border-border grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-2">
-          <SummaryField label="Title" value={formData.title} full />
-          <SummaryField label="Description" value={formData.description} full />
-          <SummaryField label="System Affected" value={formData.systemAffected} />
-          <SummaryField label="Category" value={formData.category} />
-          <SummaryField label="Submitter" value={formData.submitterName} />
-          <SummaryField label="Department" value={formData.submitterDepartment} />
-          <SummaryField
-            label="Requested Timeline"
-            value={formData.requestedTimeline}
-          />
+        <h3 className="card-title">General Information</h3>
+
+        <div className="text-body-sm space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SummaryField
+              label="System Affected"
+              value={formData.systemAffected}
+            />
+            <SummaryField label="Category" value={formData.category} />
+            <SummaryField label="Submitter" value={formData.submitterName} />
+            <SummaryField
+              label="Department"
+              value={formData.submitterDepartment}
+            />
+            <SummaryField
+              label="Requested Timeline"
+              value={formData.requestedTimeline}
+            />
+          </div>
+
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Title
+            </span>
+            <span className="text-primary-alpha text-body-md mt-1 block font-bold">
+              "{formData.title}"
+            </span>
+          </div>
+
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Description
+            </span>
+            <span className="text-fade mt-1 block leading-relaxed font-medium">
+              "{formData.description}"
+            </span>
+          </div>
         </div>
       </div>
 
       {/* AI Request Summary (conditional) */}
       {formData.category === "AI" && (
         <div className="card space-y-4 p-6">
-          <div className="flex items-center gap-2">
-            <Cpu className="text-primary h-4 w-4" />
-            <h4 className="text-body-md text-primary-alpha font-bold">
-              AI Request Details
-            </h4>
-          </div>
-          <div className="border-border grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-2 lg:grid-cols-3">
+          <h3 className="card-title">AI Request Details</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <SummaryField
               label="Frequency"
               value={formData.aiRequest.frequency}
@@ -298,140 +283,198 @@ const ReviewStep: React.FC = () => {
 
       {/* Risk & Justification Summary */}
       <div className="card space-y-4 p-6">
-        <div className="flex items-center gap-2">
-          {riskStyle.icon}
-          <h4 className="text-body-md text-primary-alpha font-bold">
-            Risk & Justification
-          </h4>
-        </div>
-        <div className="border-border grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-2">
-          <div className="space-y-1">
-            <span className="text-fade text-body-xs block font-bold uppercase tracking-wide">
-              Risk Level
+        <h3 className="card-title">Risk & Justification</h3>
+
+        <div className="text-body-sm space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Risk Level
+              </span>
+              <Tag color={riskColor} className="mt-1">
+                {formData.riskLevel}
+                {formData.riskOverridden && " (overridden)"}
+              </Tag>
+            </div>
+            {formData.riskOverridden && (
+              <SummaryField
+                label="Override Justification"
+                value={formData.riskOverrideJustification}
+              />
+            )}
+          </div>
+
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Business Justification
             </span>
-            <span
-              className={cn("text-body-sm flex items-center gap-1.5 font-semibold", riskStyle.color)}
-            >
-              {riskStyle.icon} {formData.riskLevel}
-              {formData.riskOverridden && " (overridden)"}
+            <span className="text-fade mt-1 block leading-relaxed font-medium">
+              "{formData.businessJustification}"
             </span>
           </div>
-          {formData.riskOverridden && (
-            <SummaryField
-              label="Override Justification"
-              value={formData.riskOverrideJustification}
-            />
-          )}
-          <SummaryField
-            label="Business Justification"
-            value={formData.businessJustification}
-            full
-          />
         </div>
       </div>
 
       {/* Rollback Plan Summary */}
       {formData.rollbackPlan.steps && (
         <div className="card space-y-4 p-6">
-          <div className="flex items-center gap-2">
-            <RotateCcw className="text-primary h-4 w-4" />
-            <h4 className="text-body-md text-primary-alpha font-bold">
-              Rollback Plan
-            </h4>
-          </div>
-          <div className="border-border grid grid-cols-1 gap-4 rounded-xl border p-4 md:grid-cols-2">
-            <SummaryField
-              label="Rollback Steps"
-              value={formData.rollbackPlan.steps}
-              full
-            />
-            <SummaryField
-              label="Responsible Person"
-              value={formData.rollbackPlan.responsiblePerson}
-            />
-            <SummaryField
-              label="Estimated Time"
-              value={formData.rollbackPlan.estimatedTime}
-            />
-            <SummaryField
-              label="Dependencies & Risks"
-              value={formData.rollbackPlan.dependencies}
-              full
-            />
+          <h3 className="card-title">Rollback Plan</h3>
+
+          <div className="text-body-sm space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SummaryField
+                label="Responsible Person"
+                value={formData.rollbackPlan.responsiblePerson}
+              />
+              <SummaryField
+                label="Estimated Time"
+                value={formData.rollbackPlan.estimatedTime}
+              />
+            </div>
+
+            <div className="border-border-muted border-t pt-3">
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Rollback Steps
+              </span>
+              <span className="text-fade mt-1 block leading-relaxed font-medium">
+                "{formData.rollbackPlan.steps}"
+              </span>
+            </div>
+
+            <div className="border-border-muted border-t pt-3">
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Dependencies & Risks
+              </span>
+              <span className="text-fade mt-1 block leading-relaxed font-medium">
+                "{formData.rollbackPlan.dependencies}"
+              </span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Approval Routing */}
-      <div className="card space-y-4 p-6">
-        <div className="flex items-center gap-2">
-          <User className="text-primary h-4 w-4" />
-          <h4 className="text-body-md text-primary-alpha font-bold">
-            Approval Routing
-          </h4>
-        </div>
-
-        {formData.approvalPlan.length === 0 ? (
-          <p className="text-body-sm text-fade italic">
-            No approval stages are configured for {formData.riskLevel} risk
-            changes. An admin can configure these under Settings → Risk Levels.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-body-sm text-fade">
-              This {formData.riskLevel.toLowerCase()} risk change follows the{" "}
-              {formData.approvalPlan.length}-stage approval flow below. Pick an
-              approver for any stage where you're asked to.
+      {/* Submit Confirmation Modal */}
+      <Modal
+        title={
+          <div>
+            <h3 className="text-h1 text-primary-alpha font-bold">
+              Submit Change Request
+            </h3>
+            <p className="text-body-xs text-fade-2 font-medium">
+              Review the approval routing and confirm submission.
             </p>
-            <div className="border-border bg-bg-muted/30 space-y-3 rounded-xl border p-4">
-              {formData.approvalPlan.map((stage, idx) => (
-                <div key={stage.id} className="flex items-center gap-3">
-                  <span className="bg-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white">
-                    {idx + 1}
-                  </span>
-                  {stage.type === "role_based" ? (
-                    <span className="text-body-sm text-primary-alpha font-semibold">
-                      {stage.role}
-                    </span>
-                  ) : (
-                    <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                      <span className="text-body-sm text-fade shrink-0 font-medium">
-                        Requester selects:
-                      </span>
-                      <Select
-                        value={stage.approverId || undefined}
-                        onChange={(value) => setStageApprover(stage.id, value)}
-                        placeholder="Select an approver..."
-                        className={cn(FORM.CLASS_NAME, "max-w-md")}
-                        options={approverOptions}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
+          </div>
+        }
+        open={isSubmitModalOpen}
+        onCancel={() => setIsSubmitModalOpen(false)}
+        okText="Confirm & Submit"
+        cancelText="Cancel"
+        okButtonProps={{
+          className:
+            "bg-primary hover:bg-primary/90 text-white border-none! font-semibold",
+        }}
+        cancelButtonProps={{
+          className: "border-border! text-primary-alpha! hover:bg-bg-muted!",
+        }}
+        bodyProps={{ className: "pb-4!" }}
+        onOk={handleConfirmSubmit}
+        width={550}
+        centered
+        destroyOnClose
+      >
+        <div className="text-primary-alpha space-y-5">
+          {/* Routing explanation */}
+          <div>
+            <span className="text-fade-2 mb-2 block text-[10px] font-bold tracking-wider uppercase">
+              Approval Routing
+            </span>
+            <div className="bg-bg-muted border-border-muted text-body-sm text-fade space-y-2 rounded-2xl border p-4 leading-relaxed font-medium">
+              <div className="flex gap-2">
+                {routingExplanation.icon}
+                <span>{routingExplanation.text}</span>
+              </div>
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Approval Chain Timeline */}
+          {configuredStages.length > 0 && (
+            <div className="relative ml-3 space-y-5 pl-6">
+              {configuredStages.map((stage, idx) => {
+                const isLast = idx === configuredStages.length - 1;
+                const fieldError: FieldError | undefined =
+                  submitAttempted &&
+                  stage.type === "generic" &&
+                  !approverSelections[stage.id]
+                    ? { type: "required", message: "Select an approver" }
+                    : undefined;
+
+                return (
+                  <div key={stage.id} className="relative">
+                    {!isLast && (
+                      <span className="border-border-muted absolute top-6.5 bottom-[-24px] -left-[23px] border-l-2" />
+                    )}
+                    <span className="dark:bg-bg border-primary absolute top-2 -left-[31px] flex h-4.5 w-4.5 items-center justify-center rounded-full border-2 bg-white">
+                      <span className="bg-primary h-1.5 w-1.5 rounded-full" />
+                    </span>
+
+                    {stage.type === "role_based" ? (
+                      <FormField
+                        label={`Stage ${idx + 1}: ${stage.role}`}
+                        rootClassName="mb-0!"
+                      >
+                        <Input
+                          value={stage.role}
+                          readOnly
+                          className="h-11! w-full"
+                        />
+                      </FormField>
+                    ) : (
+                      <FormField
+                        label={`Stage ${idx + 1}: Requester Selects Approver`}
+                        error={fieldError}
+                        rootClassName="mb-0!"
+                      >
+                        <Select
+                          value={approverSelections[stage.id] || undefined}
+                          onChange={(value) =>
+                            setApproverSelections((prev) => ({
+                              ...prev,
+                              [stage.id]: value,
+                            }))
+                          }
+                          placeholder="Select an approver..."
+                          className="h-11! w-full"
+                          options={approverOptions}
+                          status={fieldError ? "error" : undefined}
+                        />
+                      </FormField>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Modal>
     </form>
-  )
-}
+  );
+};
 
 /* ── Helper Components ── */
 
 const SummaryField: React.FC<{
-  label: string
-  value: string | undefined
-  full?: boolean
+  label: string;
+  value: string | undefined;
+  full?: boolean;
 }> = ({ label, value, full }) => (
-  <div className={cn("space-y-1", full && "col-span-full")}>
-    <span className="text-fade text-body-xs block font-bold uppercase tracking-wide">
+  <div className={cn(full && "col-span-full")}>
+    <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
       {label}
     </span>
-    <span className="text-primary-alpha text-body-sm block whitespace-pre-wrap font-medium">
+    <span className="text-primary-alpha block whitespace-pre-wrap font-bold">
       {value || <span className="text-fade italic">Not provided</span>}
     </span>
   </div>
-)
+);
 
-export default ReviewStep
+export default ReviewStep;

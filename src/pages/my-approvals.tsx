@@ -6,11 +6,13 @@ import { useAppSelector } from "../state/store";
 import type { ChangeRequest } from "../state/slices/changes-slice";
 import Tag from "../components/ui/tag";
 import { DataTable } from "../components/ui/data-table";
+import { Utils } from "../utils";
 
 export const MyApprovals: React.FC = () => {
   const navigate = useNavigate();
   const { currentUserId, activeRoles } = useAppSelector((state) => state.auth);
   const { changes } = useAppSelector((state) => state.changes);
+  const { riskLevels } = useAppSelector((state) => state.settings);
 
   // Filter to changes awaiting current user's approval action
   const pendingApprovals = useMemo(() => {
@@ -103,7 +105,9 @@ export const MyApprovals: React.FC = () => {
       dataIndex: "riskLevel",
       key: "riskLevel",
       width: 90,
-      render: (risk: string) => <Tag value={risk}>{risk}</Tag>,
+      render: (risk: string) => (
+        <Tag color={Utils.resolveRiskColor(riskLevels, risk)}>{risk}</Tag>
+      ),
     },
     {
       title: "Status",

@@ -1,79 +1,94 @@
-import React, { useState } from "react"
-import { Button, Modal, Select, Switch, Popconfirm, Input, type TableProps } from "antd"
-import { DataTable } from "../components/ui/data-table"
-import { useAppSelector, useAppDispatch } from "../state/store"
+import React, { useState } from "react";
+import {
+  Button,
+  Modal,
+  Select,
+  Switch,
+  Popconfirm,
+  Input,
+  type TableProps,
+} from "antd";
+import { DataTable } from "../components/ui/data-table";
+import { useAppSelector, useAppDispatch } from "../state/store";
 import {
   addCategory,
   updateCategory,
   removeCategory,
   type CategoryOption,
-} from "../state/slices/settings-slice"
-import { Plus, Edit, Trash2 } from "lucide-react"
-import { useForm, type SubmitHandler } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import FormField from "../components/ui/form-field"
-import { FORM } from "../static"
-import Tag from "../components/ui/tag"
+} from "../state/slices/settings-slice";
+import { Plus, Edit, Trash2 } from "lucide-react";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import FormField from "../components/ui/form-field";
+import { FORM } from "../static";
+import Tag from "../components/ui/tag";
+import { Utils } from "../utils";
 
 const categorySchema = z.object({
   name: z.string().min(1, "Category name is required"),
-  defaultRisk: z.enum(["Low", "Medium", "High"]),
+  defaultRisk: z.string().min(1, "Default risk level is required"),
   active: z.boolean(),
-})
+});
 
-type CategoryFormValues = z.infer<typeof categorySchema>
+type CategoryFormValues = z.infer<typeof categorySchema>;
 
 export const SettingsCategories: React.FC = () => {
-  const dispatch = useAppDispatch()
-  const { categories } = useAppSelector((state) => state.settings)
+  const dispatch = useAppDispatch();
+  const { categories, riskLevels } = useAppSelector((state) => state.settings);
 
-  const [isOpen, setIsOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const riskLevelOptions = [...riskLevels]
+    .sort((a, b) => a.severity - b.severity)
+    .map((r) => ({ label: r.name, value: r.name }));
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const defaultValues: CategoryFormValues = {
     name: "",
-    defaultRisk: "Low",
+    defaultRisk: riskLevels[0]?.name ?? "",
     active: true,
-  }
+  };
 
   const { handleSubmit, control, reset } = useForm<CategoryFormValues>({
     resolver: zodResolver(categorySchema),
     defaultValues,
-  })
+  });
 
   const openAddDialog = () => {
-    setEditingId(null)
-    reset(defaultValues)
-    setIsOpen(true)
-  }
+    setEditingId(null);
+    reset(defaultValues);
+    setIsOpen(true);
+  };
 
   const openEditDialog = (category: CategoryOption) => {
-    setEditingId(category.id)
+    setEditingId(category.id);
     reset({
       name: category.name,
       defaultRisk: category.defaultRisk,
       active: category.active,
-    })
-    setIsOpen(true)
-  }
+    });
+    setIsOpen(true);
+  };
 
   const onSubmit: SubmitHandler<CategoryFormValues> = (data) => {
     if (editingId) {
-      dispatch(updateCategory({ id: editingId, updates: data }))
+      dispatch(updateCategory({ id: editingId, updates: data }));
     } else {
       const newCategory: CategoryOption = {
         id: `cat-${Date.now()}`,
         ...data,
-      }
-      dispatch(addCategory(newCategory))
+      };
+      dispatch(addCategory(newCategory));
     }
-    setIsOpen(false)
-  }
+    setIsOpen(false);
+  };
 
   const handleToggleActive = (record: CategoryOption) => {
-    dispatch(updateCategory({ id: record.id, updates: { active: !record.active } }))
-  }
+    dispatch(
+      updateCategory({ id: record.id, updates: { active: !record.active } }),
+    );
+  };
 
   const columns: TableProps<CategoryOption>["columns"] = [
     {
@@ -89,7 +104,9 @@ export const SettingsCategories: React.FC = () => {
       dataIndex: "defaultRisk",
       title: "Default Risk Level",
       render: (_, record) => (
-        <Tag value={record.defaultRisk}>{record.defaultRisk}</Tag>
+        <Tag color={Utils.resolveRiskColor(riskLevels, record.defaultRisk)}>
+          {record.defaultRisk}
+        </Tag>
       ),
     },
     {
@@ -131,7 +148,7 @@ export const SettingsCategories: React.FC = () => {
         </div>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
@@ -164,7 +181,8 @@ export const SettingsCategories: React.FC = () => {
         okButtonProps={{
           htmlType: "submit",
           form: "settings-category-form",
-          className: "bg-primary hover:bg-primary/90 text-white border-none! font-semibold",
+          className:
+            "bg-primary hover:bg-primary/90 text-white border-none! font-semibold",
         }}
         cancelButtonProps={{
           className: "border-border! text-primary-alpha! hover:bg-bg-muted!",
@@ -183,7 +201,8 @@ export const SettingsCategories: React.FC = () => {
               {editingId ? "Edit Category" : "Add New Category"}
             </h3>
             <p className="text-body-xs text-fade-2 font-medium">
-              Configure the category name, default risk level, and active status.
+              Configure the category name, default risk level, and active
+              status.
             </p>
           </div>
 
@@ -194,7 +213,10 @@ export const SettingsCategories: React.FC = () => {
               label="Category Name"
               labelProps={FORM.LABEL_PROPS}
             >
-              <Input placeholder="e.g. New Feature" className={FORM.CLASS_NAME} />
+              <Input
+                placeholder="e.g. New Feature"
+                className={FORM.CLASS_NAME}
+              />
             </FormField>
 
             <FormField
@@ -204,11 +226,8 @@ export const SettingsCategories: React.FC = () => {
               labelProps={FORM.LABEL_PROPS}
             >
               <Select
-                options={[
-                  { value: "Low", label: "Low" },
-                  { value: "Medium", label: "Medium" },
-                  { value: "High", label: "High" },
-                ]}
+                showSearch={{ optionFilterProp: "label" }}
+                options={riskLevelOptions}
                 className={FORM.CLASS_NAME}
                 placeholder="Select risk level"
               />
@@ -227,7 +246,7 @@ export const SettingsCategories: React.FC = () => {
         </form>
       </Modal>
     </div>
-  )
-}
+  );
+};
 
-export default SettingsCategories
+export default SettingsCategories;

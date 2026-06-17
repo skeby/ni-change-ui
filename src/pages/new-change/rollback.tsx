@@ -105,14 +105,16 @@ const RollbackStep: React.FC = () => {
             required
           >
             <Select
-              showSearch
-              optionFilterProp="label"
+              showSearch={{ optionFilterProp: "label" }}
               placeholder="Select responsible person..."
               className={FORM.CLASS_NAME}
-              options={users.map((u) => ({
-                label: `${u.name} (${u.department})`,
-                value: u.name,
-              }))}
+              options={[
+                { label: "Select responsible person...", value: "" },
+                ...users.map((u) => ({
+                  label: `${u.name} (${u.department})`,
+                  value: u.name,
+                })),
+              ]}
             />
           </FormField>
 

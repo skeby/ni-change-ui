@@ -4,11 +4,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input, Select, Switch } from "antd";
-import { ShieldCheck, ShieldAlert, Shield } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import FormField from "../../components/ui/form-field";
-import { FORM, colorMap } from "../../static";
+import { FORM } from "../../static";
 import { useWizard } from "./new-change-wizard";
 import type { RiskLevel } from "../../state/slices/changes-slice";
+import { useAppSelector } from "../../state/store";
+import { Utils } from "../../utils";
 import chroma from "chroma-js";
 
 const riskSchema = z
@@ -44,33 +46,15 @@ const riskSchema = z
 
 type RiskValues = z.infer<typeof riskSchema>;
 
-const RISK_CONFIG: Record<
-  RiskLevel,
-  {
-    icon: React.ReactNode;
-    description: string;
-  }
-> = {
-  Low: {
-    icon: <ShieldCheck className="h-5 w-5" />,
-    description:
-      "Low risk — minimal impact expected. Single approver workflow.",
-  },
-  Medium: {
-    icon: <Shield className="h-5 w-5" />,
-    description:
-      "Medium risk — moderate impact possible. Requires department lead and IT manager approval.",
-  },
-  High: {
-    icon: <ShieldAlert className="h-5 w-5" />,
-    description:
-      "High risk — significant potential impact. Requires full approval chain including CTO sign-off.",
-  },
-};
-
 const RiskStep: React.FC = () => {
   const navigate = useNavigate();
   const { formData, updateFormData, draftId } = useWizard();
+  const { riskLevels } = useAppSelector((state) => state.settings);
+  const { users } = useAppSelector((state) => state.auth);
+
+  const sortedRiskLevels = [...riskLevels].sort(
+    (a, b) => a.severity - b.severity,
+  );
 
   const [overrideEnabled, setOverrideEnabled] = useState(
     formData.riskOverridden,
@@ -90,8 +74,15 @@ const RiskStep: React.FC = () => {
     ? (watch("riskLevel") as RiskLevel) || formData.autoAssignedRisk
     : formData.autoAssignedRisk;
 
-  const riskInfo = RISK_CONFIG[currentRisk];
-  const riskColor = colorMap[currentRisk.toLowerCase()] || "#10b981";
+  const matchedLevel = riskLevels.find((r) => r.name === currentRisk);
+  const riskColor = Utils.resolveRiskColor(riskLevels, currentRisk);
+  const escalateToName = matchedLevel
+    ? users.find((u) => u.id === matchedLevel.escalateTo)?.name ||
+      matchedLevel.escalateTo
+    : "";
+  const riskDescription = matchedLevel
+    ? `${matchedLevel.approvalStages.length} approval stage${matchedLevel.approvalStages.length === 1 ? "" : "s"} configured. Escalates after ${matchedLevel.maxEscalationHours}h to ${escalateToName}.`
+    : "Risk level configuration not found.";
 
   const onSubmit = (values: RiskValues) => {
     updateFormData({
@@ -131,7 +122,7 @@ const RiskStep: React.FC = () => {
             color: riskColor,
           }}
         >
-          {riskInfo.icon}
+          <ShieldAlert className="h-5 w-5" />
         </div>
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -157,9 +148,7 @@ const RiskStep: React.FC = () => {
               </span>
             )}
           </div>
-          <p className="text-body-sm text-fade mt-1">
-            {riskInfo.description}
-          </p>
+          <p className="text-body-sm text-fade mt-1">{riskDescription}</p>
         </div>
       </div>
 
@@ -196,15 +185,15 @@ const RiskStep: React.FC = () => {
               required
             >
               <Select
+                showSearch={{ optionFilterProp: "label" }}
                 value={watch("riskLevel") || undefined}
                 onChange={(v) => setValue("riskLevel", v)}
                 placeholder="Select risk level..."
                 className={FORM.CLASS_NAME}
-                options={[
-                  { label: "Low", value: "Low" },
-                  { label: "Medium", value: "Medium" },
-                  { label: "High", value: "High" },
-                ]}
+                options={sortedRiskLevels.map((r) => ({
+                  label: r.name,
+                  value: r.name,
+                }))}
               />
             </FormField>
 

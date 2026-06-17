@@ -1,4 +1,4 @@
-import React, { useMemo } from "react"
+import React, { useState, useMemo } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { useAppSelector } from "../state/store"
 import { useTheme } from "../hooks"
@@ -19,12 +19,15 @@ import {
   Rocket,
 } from "lucide-react"
 import Tag from "../components/ui/tag"
+import { Utils } from "../utils"
+import { Select } from "antd"
 
 export const SelfDashboard: React.FC = () => {
   const navigate = useNavigate()
   const { isDarkMode } = useTheme()
   const { currentUserId, activeRoles } = useAppSelector((state) => state.auth)
   const { changes } = useAppSelector((state) => state.changes)
+  const { riskLevels } = useAppSelector((state) => state.settings)
 
   // My changes
   const myChanges = useMemo(
@@ -80,16 +83,58 @@ export const SelfDashboard: React.FC = () => {
       .slice(0, 5)
   }, [myChanges])
 
+  // Helper for generating month options (Jan 2026 to current month)
+  const monthOptions = useMemo(() => {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() // 0-indexed
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ]
+    const options = []
+    for (let m = 0; m <= currentMonth; m++) {
+      const monthStr = `${currentYear}-${String(m + 1).padStart(2, "0")}`
+      options.push({
+        value: monthStr,
+        label: `${monthNames[m]} ${currentYear}`,
+      })
+    }
+    return options
+  }, [])
+
+  const currentMonthValue = useMemo(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  }, [])
+
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([
+    currentMonthValue,
+  ])
+
   // Chart data: my changes by system
   const systemBarData = useMemo(() => {
     const counts: Record<string, number> = {}
     myChanges
       .filter((c) => c.status !== "Draft")
       .forEach((c) => {
-        counts[c.systemAffected] = (counts[c.systemAffected] || 0) + 1
+        const changeMonth = c.createdAt.substring(0, 7)
+        if (selectedMonths.length === 0 || selectedMonths.includes(changeMonth)) {
+          counts[c.systemAffected] = (counts[c.systemAffected] || 0) + 1
+        }
       })
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [myChanges])
+  }, [myChanges, selectedMonths])
 
   const tooltipStyle = {
     background: isDarkMode ? "#252525" : "#FFF",
@@ -230,13 +275,12 @@ export const SelfDashboard: React.FC = () => {
                         <span>
                           Risk:{" "}
                           <span
-                            className={
-                              change.riskLevel === "High"
-                                ? "text-red-500"
-                                : change.riskLevel === "Medium"
-                                  ? "text-amber-500"
-                                  : "text-emerald-500"
-                            }
+                            style={{
+                              color: Utils.resolveRiskColor(
+                                riskLevels,
+                                change.riskLevel
+                              ),
+                            }}
                           >
                             {change.riskLevel}
                           </span>
@@ -394,16 +438,28 @@ export const SelfDashboard: React.FC = () => {
 
           {/* My Systems Chart */}
           <div className="card space-y-4 p-6">
-            <div>
-              <h2 className="card-title font-sora">My Systems</h2>
-              <p className="card-description">
-                Systems affected by your change requests.
-              </p>
+            <div className="flex flex-wrap justify-between gap-x-4 gap-y-3">
+              <div>
+                <h2 className="card-title font-sora">My Systems</h2>
+                <p className="card-description">
+                  Systems affected by your change requests.
+                </p>
+              </div>
+              <Select
+                mode="multiple"
+                maxTagCount="responsive"
+                placeholder="Select months"
+                value={selectedMonths}
+                onChange={setSelectedMonths}
+                style={{ minWidth: 160, maxWidth: "100%" }}
+                options={monthOptions}
+                allowClear
+              />
             </div>
             <div className="h-48 w-full">
               {systemBarData.length === 0 ? (
                 <div className="text-body-sm text-fade-2 flex h-full items-center justify-center">
-                  No change data yet.
+                  No change data for selected period.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">

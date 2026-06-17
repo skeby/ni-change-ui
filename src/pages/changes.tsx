@@ -7,14 +7,13 @@ import { useAppSelector } from "../state/store"
 import type {
   ChangeRequest,
   ChangeStatus,
-  ChangeCategory,
-  RiskLevel,
 } from "../state/slices/changes-slice"
 import Tag from "../components/ui/tag"
 import { DataTable } from "../components/ui/data-table"
 import { TableFilter } from "../components/ui/table-filter"
 import { DataViewSwitcher } from "../components/ui/data-view-switcher"
 import { ChangeCard } from "../components/ui/change-card"
+import { Utils } from "../utils"
 
 const ALL_STATUSES: ChangeStatus[] = [
   "Submitted",
@@ -30,23 +29,18 @@ const ALL_STATUSES: ChangeStatus[] = [
   "Rolled Back",
 ]
 
-const ALL_RISK_LEVELS: RiskLevel[] = ["Low", "Medium", "High"]
-
-const ALL_CATEGORIES: ChangeCategory[] = [
-  "New Feature",
-  "Bug Fix",
-  "Configuration Change",
-  "Integration",
-  "Security Patch",
-  "AI",
-]
-
 const FILTER_KEYS = ["status", "riskLevel", "category", "system"]
 
 export const Changes: React.FC = () => {
   const navigate = useNavigate()
   const { changes } = useAppSelector((state) => state.changes)
   const { dataView } = useAppSelector((state) => state.app)
+  const { categories, riskLevels } = useAppSelector((state) => state.settings)
+  const sortedRiskLevels = [...riskLevels].sort(
+    (a, b) => a.severity - b.severity
+  )
+  const riskSeverity = (name: string) =>
+    riskLevels.find((r) => r.name === name)?.severity ?? 0
 
   const [searchParams, setSearchParams] = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
@@ -101,12 +95,14 @@ export const Changes: React.FC = () => {
       {
         label: "Risk Level",
         name: "riskLevel",
-        values: ALL_RISK_LEVELS.map((r) => ({ label: r, value: r })),
+        values: sortedRiskLevels.map((r) => ({ label: r.name, value: r.name })),
       },
       {
         label: "Category",
         name: "category",
-        values: ALL_CATEGORIES.map((c) => ({ label: c, value: c })),
+        values: categories
+          .filter((c) => c.active)
+          .map((c) => ({ label: c.name, value: c.name })),
       },
       {
         label: "System",
@@ -114,7 +110,7 @@ export const Changes: React.FC = () => {
         values: systems.map((s) => ({ label: s, value: s })),
       },
     ]
-  }, [orgChanges])
+  }, [orgChanges, categories, sortedRiskLevels])
 
   const fullyFilteredChanges = useMemo(() => {
     return orgChanges.filter((c) => {
@@ -210,11 +206,10 @@ export const Changes: React.FC = () => {
       dataIndex: "riskLevel",
       key: "riskLevel",
       width: 90,
-      sorter: (a, b) => {
-        const order = { Low: 1, Medium: 2, High: 3 }
-        return (order[a.riskLevel] || 0) - (order[b.riskLevel] || 0)
-      },
-      render: (risk: string) => <Tag value={risk}>{risk}</Tag>,
+      sorter: (a, b) => riskSeverity(a.riskLevel) - riskSeverity(b.riskLevel),
+      render: (risk: string) => (
+        <Tag color={Utils.resolveRiskColor(riskLevels, risk)}>{risk}</Tag>
+      ),
     },
     {
       title: "Status",
