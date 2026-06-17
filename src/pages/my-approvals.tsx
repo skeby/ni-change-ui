@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { type TableProps } from "antd";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, History } from "lucide-react";
 import { useAppSelector } from "../state/store";
 import type { ChangeRequest } from "../state/slices/changes-slice";
 import Tag from "../components/ui/tag";
@@ -47,6 +47,13 @@ export const MyApprovals: React.FC = () => {
     () => [...pendingApprovals, ...queriedForMe],
     [pendingApprovals, queriedForMe],
   );
+
+  // Approval history: changes where the current user has already taken action
+  const approvalHistory = useMemo(() => {
+    return changes.filter((c) =>
+      c.approvals.some((a) => a.approverId === currentUserId),
+    );
+  }, [changes, currentUserId]);
 
   const columns: TableProps<ChangeRequest>["columns"] = [
     {
@@ -158,7 +165,7 @@ export const MyApprovals: React.FC = () => {
         </div>
       </div> */}
 
-      {/* Table */}
+      {/* Pending Approvals Table */}
       {allActionable.length === 0 ? (
         <div className="card p-12 text-center">
           <div className="bg-bg-muted border-border-muted text-fade-2 mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border">
@@ -172,12 +179,50 @@ export const MyApprovals: React.FC = () => {
         </div>
       ) : (
         <DataTable
-          name="approvals"
+          name="pending approvals"
           rowKey="id"
           columns={columns}
           dataSource={allActionable}
+          left={[
+            <span key="title" className="text-body-md text-fade font-bold">
+              Pending Approvals ({allActionable.length})
+            </span>,
+          ]}
           search={{
             placeholder: "Search approvals...",
+            position: "right",
+          }}
+          onRow={(record) => ({
+            className: "cursor-pointer",
+            onClick: () => navigate(`/self/changes/${record.id}`),
+          })}
+        />
+      )}
+
+      {/* Approval History Table */}
+      {approvalHistory.length === 0 ? (
+        <div className="card p-12 text-center">
+          <div className="bg-bg-muted border-border-muted text-fade-2 mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border">
+            <History className="h-6 w-6" />
+          </div>
+          <h3 className="card-title">No approval history</h3>
+          <p className="card-description mx-auto mt-1 max-w-sm">
+            Your past approval actions will appear here.
+          </p>
+        </div>
+      ) : (
+        <DataTable
+          name="approval history"
+          rowKey="id"
+          columns={columns}
+          dataSource={approvalHistory}
+          left={[
+            <span key="title" className="text-body-md text-fade font-bold">
+              Approval History ({approvalHistory.length})
+            </span>,
+          ]}
+          search={{
+            placeholder: "Search history...",
             position: "right",
           }}
           onRow={(record) => ({
