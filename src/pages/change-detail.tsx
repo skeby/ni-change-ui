@@ -217,9 +217,13 @@ export const ChangeDetail: React.FC = () => {
     );
   }, [change, settings.testChecklists]);
 
-  const handleEditStep = (stepId: string, field: keyof TestStep, value: string) => {
+  const handleEditStep = (
+    stepId: string,
+    field: keyof TestStep,
+    value: string,
+  ) => {
     setEditTestSteps((prev) =>
-      prev.map((s) => (s.id === stepId ? { ...s, [field]: value } : s))
+      prev.map((s) => (s.id === stepId ? { ...s, [field]: value } : s)),
     );
   };
 
@@ -260,7 +264,9 @@ export const ChangeDetail: React.FC = () => {
         render: (_, record) => (
           <Input
             value={record.description}
-            onChange={(e) => handleEditStep(record.id, "description", e.target.value)}
+            onChange={(e) =>
+              handleEditStep(record.id, "description", e.target.value)
+            }
             placeholder="e.g. Verify Opportunity page displays custom fields"
             className="bg-background-light! w-full! rounded-xl!"
           />
@@ -272,7 +278,9 @@ export const ChangeDetail: React.FC = () => {
         render: (_, record) => (
           <Input
             value={record.expectedOutcome}
-            onChange={(e) => handleEditStep(record.id, "expectedOutcome", e.target.value)}
+            onChange={(e) =>
+              handleEditStep(record.id, "expectedOutcome", e.target.value)
+            }
             placeholder="e.g. Fields render correctly without error"
             className="bg-background-light! w-full! rounded-xl!"
           />
@@ -293,136 +301,132 @@ export const ChangeDetail: React.FC = () => {
         ),
       },
     ],
-    [editTestSteps] // eslint-disable-line react-hooks/exhaustive-deps
+    [editTestSteps], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  const testStepColumns = useMemo<TableProps<TestStep>["columns"]>(
-    () => {
-      const cols: TableProps<TestStep>["columns"] = [
-        {
-          title: "Test Step / Description",
-          key: "description",
-          render: (_, record) => (
-            <div className="space-y-1">
-              <span className="text-primary-alpha text-sm font-bold block">
-                {record.description}
+  const testStepColumns = useMemo<TableProps<TestStep>["columns"]>(() => {
+    const cols: TableProps<TestStep>["columns"] = [
+      {
+        title: "Test Step / Description",
+        key: "description",
+        render: (_, record) => (
+          <div className="space-y-1">
+            <span className="text-primary-alpha text-sm font-bold block">
+              {record.description}
+            </span>
+            <span className="text-fade-2 text-xs block font-medium">
+              Expected: {record.expectedOutcome}
+            </span>
+            {record.completedBy && (
+              <span className="text-fade-2 text-[10px] block font-medium mt-1">
+                Completed by{" "}
+                {users.find((u) => u.id === record.completedBy)?.name ||
+                  record.completedBy}
+                {record.completedAt && (
+                  <>
+                    {" "}
+                    on {dayjs(record.completedAt).format("MMM D, YYYY h:mm A")}
+                  </>
+                )}
               </span>
-              <span className="text-fade-2 text-xs block font-medium">
-                Expected: {record.expectedOutcome}
-              </span>
-              {record.completedBy && (
-                <span className="text-fade-2 text-[10px] block font-medium mt-1">
-                  Completed by{" "}
-                  {users.find((u) => u.id === record.completedBy)?.name ||
-                    record.completedBy}
-                  {record.completedAt && (
-                    <>
-                      {" "}
-                      on{" "}
-                      {dayjs(record.completedAt).format("MMM D, YYYY h:mm A")}
-                    </>
-                  )}
-                </span>
-              )}
-            </div>
-          ),
-        },
-        {
-          title: "Status",
-          dataIndex: "result",
-          key: "result",
-          width: 100,
-          render: (val: string) => (
-            <Tag value={val} format={true}>
-              {val}
-            </Tag>
-          ),
-        },
-      ];
+            )}
+          </div>
+        ),
+      },
+      {
+        title: "Status",
+        dataIndex: "result",
+        key: "result",
+        width: 100,
+        render: (val: string) => (
+          <Tag value={val} format={true}>
+            {val}
+          </Tag>
+        ),
+      },
+    ];
 
-      if (canTest) {
-        cols.push({
-          title: "Action",
-          key: "action",
-          width: 150,
-          render: (_, record) => (
-            <div className="flex items-center gap-2">
-              <Button
-                size="small"
-                type={record.result === "pass" ? "primary" : "text"}
-                className={
-                  record.result === "pass"
-                    ? "!bg-emerald-600! !border-emerald-600! text-white! font-semibold flex items-center"
-                    : "text-fade hover:text-emerald-600! hover:bg-emerald-50 dark:hover:bg-emerald-950/20 flex items-center"
-                }
-                onClick={() => handleTestStepToggle(record.id, "pass")}
-              >
-                <FaCheck className="mr-1.5 h-3 w-3" />
-                Pass
-              </Button>
-              <Button
-                size="small"
-                type={record.result === "fail" ? "primary" : "text"}
-                danger={record.result === "fail"}
-                className={
-                  record.result === "fail"
-                    ? "!bg-red-600! !border-red-600! text-white! font-semibold flex items-center"
-                    : "text-fade hover:text-red-600! hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center"
-                }
-                onClick={() => handleTestStepToggle(record.id, "fail")}
-              >
-                <FaXmark className="mr-1.5 h-3 w-3" />
-                Fail
-              </Button>
-            </div>
-          ),
-        });
-      }
-
+    if (canTest) {
       cols.push({
-        title: "Notes",
-        key: "notes",
-        width: canTest ? 220 : 180,
-        render: (_, record) => {
-          if (canTest) {
-            return (
-              <Input
-                size="small"
-                placeholder="Notes..."
-                value={testNotes[record.id] ?? record.notes}
-                onChange={(e) =>
-                  setTestNotes((prev) => ({
-                    ...prev,
-                    [record.id]: e.target.value,
-                  }))
-                }
-                onBlur={() => {
-                  dispatch(
-                    updateTestStep({
-                      changeId: change?.id || "",
-                      stepId: record.id,
-                      updates: {
-                        notes: testNotes[record.id] ?? record.notes,
-                      },
-                    })
-                  );
-                }}
-                className="w-full"
-              />
-            );
-          }
-          return record.notes ? (
-            <span className="text-fade text-xs italic">"{record.notes}"</span>
-          ) : (
-            <span className="text-fade-2 text-xs italic">No notes</span>
-          );
-        },
+        title: "Action",
+        key: "action",
+        width: 150,
+        render: (_, record) => (
+          <div className="flex items-center gap-2">
+            <Button
+              size="small"
+              type={record.result === "pass" ? "primary" : "text"}
+              className={
+                record.result === "pass"
+                  ? "!bg-emerald-600! !border-emerald-600! text-white! font-semibold flex items-center"
+                  : "text-fade hover:text-emerald-600! hover:bg-emerald-50 dark:hover:bg-emerald-950/20 flex items-center"
+              }
+              onClick={() => handleTestStepToggle(record.id, "pass")}
+            >
+              <FaCheck className="mr-1.5 h-3 w-3" />
+              Pass
+            </Button>
+            <Button
+              size="small"
+              type={record.result === "fail" ? "primary" : "text"}
+              danger={record.result === "fail"}
+              className={
+                record.result === "fail"
+                  ? "!bg-red-600! !border-red-600! text-white! font-semibold flex items-center"
+                  : "text-fade hover:text-red-600! hover:bg-red-50 dark:hover:bg-red-950/20 flex items-center"
+              }
+              onClick={() => handleTestStepToggle(record.id, "fail")}
+            >
+              <FaXmark className="mr-1.5 h-3 w-3" />
+              Fail
+            </Button>
+          </div>
+        ),
       });
+    }
 
-      return cols;
-    },
-    [canTest, testNotes, change?.id, users, dispatch]
-  );
+    cols.push({
+      title: "Notes",
+      key: "notes",
+      width: canTest ? 220 : 180,
+      render: (_, record) => {
+        if (canTest) {
+          return (
+            <Input
+              size="small"
+              placeholder="Notes..."
+              value={testNotes[record.id] ?? record.notes}
+              onChange={(e) =>
+                setTestNotes((prev) => ({
+                  ...prev,
+                  [record.id]: e.target.value,
+                }))
+              }
+              onBlur={() => {
+                dispatch(
+                  updateTestStep({
+                    changeId: change?.id || "",
+                    stepId: record.id,
+                    updates: {
+                      notes: testNotes[record.id] ?? record.notes,
+                    },
+                  }),
+                );
+              }}
+              className="w-full"
+            />
+          );
+        }
+        return record.notes ? (
+          <span className="text-fade text-xs italic">"{record.notes}"</span>
+        ) : (
+          <span className="text-fade-2 text-xs italic">No notes</span>
+        );
+      },
+    });
+
+    return cols;
+  }, [canTest, testNotes, change?.id, users, dispatch]);
 
   // -----------------------------------------------------------------------
   // Not found
@@ -535,8 +539,6 @@ export const ChangeDetail: React.FC = () => {
     );
   };
 
-
-
   const handleAutoGenerateTests = () => {
     if (!testChecklist) return;
     const newSteps: TestStep[] = testChecklist.items.map((item, idx) => ({
@@ -619,7 +621,9 @@ export const ChangeDetail: React.FC = () => {
   const handleQueryResponseSubmit = () => {
     setQueryResponseError("");
     if (!queryResponseText.trim()) {
-      setQueryResponseError("Please provide some information in response to the query.");
+      setQueryResponseError(
+        "Please provide some information in response to the query.",
+      );
       return;
     }
 
@@ -741,8 +745,6 @@ export const ChangeDetail: React.FC = () => {
     );
   };
 
-
-
   const handleExecuteRollback = () => {
     Modal.confirm({
       title: "Execute Rollback",
@@ -817,12 +819,6 @@ export const ChangeDetail: React.FC = () => {
       return;
     }
 
-    const categoryChanged = editCategory !== change.category;
-    const autoAssignedRisk = categoryChanged
-      ? settings.categories.find((c) => c.name === editCategory)
-          ?.defaultRisk || change.autoAssignedRisk
-      : change.autoAssignedRisk;
-
     dispatch(
       updateChange({
         id: change.id,
@@ -833,8 +829,6 @@ export const ChangeDetail: React.FC = () => {
           category: editCategory as ChangeCategory,
           businessJustification: editBusinessJustification.trim(),
           requestedTimeline: editRequestedTimeline,
-          autoAssignedRisk,
-          riskLevel: change.riskOverridden ? change.riskLevel : autoAssignedRisk,
           rollbackPlan: {
             steps: rollbackSteps,
             responsiblePerson: rollbackPerson,
@@ -993,16 +987,7 @@ export const ChangeDetail: React.FC = () => {
               </span>
               <div className="mt-1 flex items-center gap-1.5">
                 <RiskTag level={change.riskLevel} />
-                {change.riskOverridden && (
-                  <Tooltip
-                    title={
-                      change.riskOverrideJustification ||
-                      "Risk was manually overridden"
-                    }
-                  >
-                    <Tag color="#f59e0b">Overridden</Tag>
-                  </Tooltip>
-                )}
+                {change.isEmergency && <Tag color="#ef4444">Emergency</Tag>}
               </div>
             </div>
             <SummaryField label="Submitter" value={change.submitterName} />
@@ -1039,7 +1024,9 @@ export const ChangeDetail: React.FC = () => {
                       </span>
                       {stage.type === "role_based" ? (
                         <span className="text-primary-alpha text-sm font-semibold">
-                          {users.find((u) => u.id === stage.approverId)?.name || stage.approverId || stage.role}
+                          {users.find((u) => u.id === stage.approverId)?.name ||
+                            stage.approverId ||
+                            stage.role}
                           {stage.approverId && (
                             <span className="text-fade-2 ml-1.5 text-xs font-medium">
                               ({stage.role})
@@ -1048,8 +1035,7 @@ export const ChangeDetail: React.FC = () => {
                         </span>
                       ) : (
                         <span className="text-primary-alpha text-sm font-semibold">
-                          {users.find((u) => u.id === stage.approverId)
-                            ?.name ||
+                          {users.find((u) => u.id === stage.approverId)?.name ||
                             stage.approverId ||
                             "Requester-selected approver"}
                           <span className="text-fade-2 ml-1.5 text-xs font-medium">
@@ -1062,8 +1048,8 @@ export const ChangeDetail: React.FC = () => {
                 </div>
               ) : (
                 <p className="text-primary-alpha text-sm font-semibold">
-                  {users.find((u) => u.id === change.selectedApprover)
-                    ?.name || change.selectedApprover}
+                  {users.find((u) => u.id === change.selectedApprover)?.name ||
+                    change.selectedApprover}
                 </p>
               )}
             </div>
@@ -1079,6 +1065,18 @@ export const ChangeDetail: React.FC = () => {
             </span>
           </div>
 
+          {/* Risk Justification */}
+          {change.riskJustification && (
+            <div className="border-border-muted border-t pt-3">
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Risk Justification
+              </span>
+              <span className="text-fade mt-1 block leading-relaxed font-medium whitespace-pre-wrap">
+                {change.riskJustification}
+              </span>
+            </div>
+          )}
+
           {/* Business Justification */}
           <div className="border-border-muted border-t pt-3">
             <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
@@ -1089,6 +1087,25 @@ export const ChangeDetail: React.FC = () => {
             </span>
           </div>
 
+          {/* Emergency action record */}
+          {change.isEmergency && (
+            <div className="border-border-muted border-t pt-3">
+              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+                Emergency Action Taken
+                {change.emergencyActionTakenAt && (
+                  <span className="text-fade ml-2 normal-case">
+                    ({dayjs(change.emergencyActionTakenAt).format(
+                      "MMM D, YYYY h:mm A",
+                    )})
+                  </span>
+                )}
+              </span>
+              <span className="text-fade mt-1 block leading-relaxed font-medium whitespace-pre-wrap">
+                {change.emergencyActionTaken}
+              </span>
+            </div>
+          )}
+
           {/* AI Request Data */}
           {change.aiRequest && (
             <div className="border-border-muted space-y-3 border-t pt-4">
@@ -1097,8 +1114,16 @@ export const ChangeDetail: React.FC = () => {
               </span>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <SummaryField
-                  label="Frequency"
-                  value={change.aiRequest.frequency}
+                  label="Who Uses It"
+                  value={change.aiRequest.whoUsesSoftware}
+                />
+                <SummaryField
+                  label="Duration"
+                  value={change.aiRequest.duration}
+                />
+                <SummaryField
+                  label="Problem Complexity"
+                  value={change.aiRequest.problemComplexity}
                 />
                 <SummaryField
                   label="Rule Engine"
@@ -1114,8 +1139,38 @@ export const ChangeDetail: React.FC = () => {
                   value={change.aiRequest.statisticalModeling}
                 />
                 <SummaryField
-                  label="Problem Complexity"
-                  value={change.aiRequest.problemComplexity}
+                  label="Requires Staff Personal Data"
+                  value={change.aiRequest.requiresStaffPersonalData}
+                />
+                <SummaryField
+                  label="Requires Sensitive Data"
+                  value={change.aiRequest.requiresSensitiveData}
+                />
+                <SummaryField
+                  label="Uses Production Data"
+                  value={change.aiRequest.usesProductionData}
+                />
+                <SummaryField
+                  label="Uses Default Stack"
+                  value={change.aiRequest.usesDefaultStack}
+                />
+                <SummaryField
+                  label="Post-build Support"
+                  value={change.aiRequest.postBuildSupport}
+                />
+                <SummaryField
+                  label="LLMs Considered"
+                  value={change.aiRequest.llmChoices.join(", ")}
+                  full
+                />
+                <SummaryField
+                  label="Integrates With"
+                  value={
+                    change.aiRequest.integratesWithSystems.length
+                      ? change.aiRequest.integratesWithSystems.join(", ")
+                      : "None"
+                  }
+                  full
                 />
                 <SummaryField
                   label="Problem Description"
@@ -1135,34 +1190,7 @@ export const ChangeDetail: React.FC = () => {
                 <SummaryField
                   label="Simpler Alternative"
                   value={change.aiRequest.simplerAlternative}
-                />
-                <SummaryField
-                  label="Global Use"
-                  value={change.aiRequest.globalUse}
-                />
-                <SummaryField
-                  label="Requires Staff Data"
-                  value={change.aiRequest.requiresStaffData}
-                />
-                <SummaryField
-                  label="Requires Sensitive Data"
-                  value={change.aiRequest.requiresSensitiveData}
-                />
-                <SummaryField
-                  label="External Users"
-                  value={change.aiRequest.externalUsers}
-                />
-                <SummaryField
-                  label="Internal Only"
-                  value={change.aiRequest.internalOnly}
-                />
-                <SummaryField
-                  label="Both Users"
-                  value={change.aiRequest.bothUsers}
-                />
-                <SummaryField
-                  label="Duration"
-                  value={change.aiRequest.duration}
+                  full
                 />
               </div>
             </div>
@@ -1173,7 +1201,9 @@ export const ChangeDetail: React.FC = () => {
   );
 
   const renderTesting = () => {
-    const hasSteps = isEditing ? editTestSteps.length > 0 : change.testSteps.length > 0;
+    const hasSteps = isEditing
+      ? editTestSteps.length > 0
+      : change.testSteps.length > 0;
 
     return (
       <div className="space-y-6 pt-2">
@@ -1195,7 +1225,9 @@ export const ChangeDetail: React.FC = () => {
               </p>
             </div>
           ) : (
-            <p className="text-fade-2 text-sm italic mt-1">No test plan defined.</p>
+            <p className="text-fade-2 text-sm italic mt-1">
+              No test plan defined.
+            </p>
           )}
         </div>
 
@@ -1247,8 +1279,14 @@ export const ChangeDetail: React.FC = () => {
           ) : (
             <div className="border-border overflow-hidden rounded-2xl border">
               <DataTable
-                dataSource={isEditing ? (editTestSteps as any) : (change.testSteps as any)}
-                columns={isEditing ? (editTestStepColumns as any) : (testStepColumns as any)}
+                dataSource={
+                  isEditing ? (editTestSteps as any) : (change.testSteps as any)
+                }
+                columns={
+                  isEditing
+                    ? (editTestStepColumns as any)
+                    : (testStepColumns as any)
+                }
                 pagination={false}
                 cardClassName="shadow-none! border-none! rounded-none! bg-transparent!"
               />
@@ -1307,7 +1345,8 @@ export const ChangeDetail: React.FC = () => {
                       <p className="text-fade-2 text-[10px] mt-1">
                         Uploaded by{" "}
                         <span className="font-semibold text-fade">
-                          {users.find((u) => u.id === ev.uploadedBy)?.name || ev.uploadedBy}
+                          {users.find((u) => u.id === ev.uploadedBy)?.name ||
+                            ev.uploadedBy}
                         </span>{" "}
                         on {dayjs(ev.uploadedAt).format("MMM D, YYYY h:mm A")}
                       </p>
@@ -1571,16 +1610,7 @@ export const ChangeDetail: React.FC = () => {
                 <StatusTag status={change.status} />
               )}
               <RiskTag level={change.riskLevel} />
-              {change.riskOverridden && (
-                <Tooltip
-                  title={
-                    change.riskOverrideJustification ||
-                    "Risk was manually overridden"
-                  }
-                >
-                  <Tag color="#f59e0b">Overridden</Tag>
-                </Tooltip>
-              )}
+              {change.isEmergency && <Tag color="#ef4444">Emergency</Tag>}
             </div>
             <p className="text-body-sm text-fade-2">
               Submitted by{" "}
@@ -1828,9 +1858,7 @@ export const ChangeDetail: React.FC = () => {
                 ),
                 children:
                   change.timeline.length === 0 ? (
-                    <p className="text-fade-2 text-sm italic">
-                      No events yet.
-                    </p>
+                    <p className="text-fade-2 text-sm italic">No events yet.</p>
                   ) : (
                     <div className="border-border-muted relative space-y-6 border-l pl-4">
                       {change.timeline.map((event, idx) => (
@@ -1862,9 +1890,11 @@ export const ChangeDetail: React.FC = () => {
                               {event.action}
                             </Tag>
                           </div>
-                          <p className="text-fade mt-1.5 text-xs italic">
-                            "{event.comment || "No comment provided."}"
-                          </p>
+                          {event.comment && (
+                            <p className="text-fade mt-1.5 text-xs italic">
+                              "{event.comment || "No comment provided."}"
+                            </p>
+                          )}
                           {(event.handledInHouse !== undefined ||
                             event.costInvolved) && (
                             <div className="text-fade-2 border-border-muted mt-1.5 flex flex-wrap gap-3 border-t pt-1.5 text-[10px] font-medium">
@@ -1878,8 +1908,7 @@ export const ChangeDetail: React.FC = () => {
                               )}
                               {event.costInvolved && (
                                 <span>
-                                  Cost: $
-                                  {event.estimatedCost?.toLocaleString()}
+                                  Cost: ${event.estimatedCost?.toLocaleString()}
                                 </span>
                               )}
                             </div>
@@ -1891,7 +1920,6 @@ export const ChangeDetail: React.FC = () => {
               },
             ]}
           />
-
         </div>
       </div>
 
@@ -2018,7 +2046,8 @@ export const ChangeDetail: React.FC = () => {
         okText="Submit Response"
         cancelText="Cancel"
         okButtonProps={{
-          className: "bg-primary hover:bg-primary/90 text-white border-none! font-semibold",
+          className:
+            "bg-primary hover:bg-primary/90 text-white border-none! font-semibold",
         }}
         cancelButtonProps={{
           className: "border-border! text-primary-alpha! hover:bg-bg-muted!",

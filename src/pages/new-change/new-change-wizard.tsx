@@ -9,10 +9,14 @@ import type {
   RollbackPlan,
   ResolvedApprovalStage,
   ChangeRequest,
+  EvidenceFile,
 } from "../../state/slices/changes-slice";
 import { saveChangeDraft } from "../../state/slices/changes-slice";
 import { useAppSelector, useAppDispatch } from "../../state/store";
-import type { CategoryOption } from "../../state/slices/settings-slice";
+import type {
+  CategoryOption,
+  ChangeCategoryKind,
+} from "../../state/slices/settings-slice";
 
 /* ── Wizard form data shape ── */
 export interface WizardFormData {
@@ -24,21 +28,25 @@ export interface WizardFormData {
   submitterName: string;
   submitterDepartment: string;
   requestedTimeline: string;
+  supportingDocuments: EvidenceFile[];
 
-  // Step 2 — AI Request (conditional)
+  // Emergency change (admin-only) — recording urgent action already taken
+  isEmergency: boolean;
+  emergencyActionTaken: string;
+  emergencyActionTakenAt: string;
+
+  // Step 2 — AI Request (conditional on ai_build)
   aiRequest: AIRequestData;
 
   // Step 3 — Risk & Justification
-  autoAssignedRisk: RiskLevel;
   riskLevel: RiskLevel;
-  riskOverridden: boolean;
-  riskOverrideJustification: string;
+  riskJustification: string;
   businessJustification: string;
 
   // Step 4 — Rollback Plan
   rollbackPlan: RollbackPlan;
 
-  // Step 5 — Review (resolved approval chain for the selected risk level)
+  // Step 5 — Review (resolved approval chain)
   approvalPlan: ResolvedApprovalStage[];
 }
 
@@ -47,6 +55,10 @@ export interface WizardContextValue {
   setFormData: React.Dispatch<React.SetStateAction<WizardFormData>>;
   updateFormData: (partial: Partial<WizardFormData>) => void;
   draftId: string;
+  /** kind of the currently selected category, or undefined if none */
+  categoryKind?: ChangeCategoryKind;
+  /** true when this AI-build request qualifies for policy self-certification */
+  isSelfCertify: boolean;
 }
 
 const WizardContext = createContext<WizardContextValue | null>(null);
@@ -57,13 +69,32 @@ export const useWizard = () => {
   return ctx;
 };
 
-/* ── Helper: derive auto-assigned risk from the category's defaultRisk ── */
-const deriveRisk = (
+/* ── Helpers ── */
+export const getCategoryKind = (
   category: ChangeCategory | "",
   categories: CategoryOption[],
-): RiskLevel => {
-  if (!category) return "Low";
-  return categories.find((c) => c.name === category)?.defaultRisk ?? "Low";
+): ChangeCategoryKind | undefined =>
+  categories.find((c) => c.name === category)?.kind;
+
+const EMPTY_AI_REQUEST: AIRequestData = {
+  ruleEngine: "",
+  aiMl: "",
+  human: "",
+  statisticalModeling: "",
+  problemComplexity: "",
+  problemDescription: "",
+  currentSolution: "",
+  successMetrics: "",
+  simplerAlternative: "",
+  duration: "",
+  whoUsesSoftware: "",
+  requiresStaffPersonalData: "",
+  requiresSensitiveData: "",
+  usesProductionData: "",
+  usesDefaultStack: "",
+  llmChoices: [],
+  integratesWithSystems: [],
+  postBuildSupport: "",
 };
 
 const INITIAL_FORM_DATA: WizardFormData = {
@@ -74,31 +105,16 @@ const INITIAL_FORM_DATA: WizardFormData = {
   submitterName: "",
   submitterDepartment: "",
   requestedTimeline: "",
+  supportingDocuments: [],
 
-  aiRequest: {
-    frequency: "",
-    ruleEngine: "",
-    aiMl: "",
-    human: "",
-    statisticalModeling: "",
-    problemComplexity: "",
-    problemDescription: "",
-    currentSolution: "",
-    successMetrics: "",
-    simplerAlternative: "",
-    globalUse: "",
-    requiresStaffData: "",
-    requiresSensitiveData: "",
-    externalUsers: "",
-    internalOnly: "",
-    bothUsers: "",
-    duration: "",
-  },
+  isEmergency: false,
+  emergencyActionTaken: "",
+  emergencyActionTakenAt: "",
 
-  autoAssignedRisk: "Low",
-  riskLevel: "Low",
-  riskOverridden: false,
-  riskOverrideJustification: "",
+  aiRequest: EMPTY_AI_REQUEST,
+
+  riskLevel: "",
+  riskJustification: "",
   businessJustification: "",
 
   rollbackPlan: {
@@ -137,16 +153,15 @@ const NewChangeWizard: React.FC = () => {
         title: "",
         description: "",
         systemAffected: "",
-        category: "New Feature",
+        category: "",
         businessJustification: "",
         requestedTimeline: "",
         submitterId: currentUser.id,
         submitterName: currentUser.name,
         submitterDepartment: currentUser.department,
         status: "Draft",
-        riskLevel: "Low",
-        riskOverridden: false,
-        autoAssignedRisk: "Low",
+        riskLevel: "",
+        riskJustification: "",
         approvals: [],
         testPlan: "",
         testSteps: [],
@@ -174,11 +189,13 @@ const NewChangeWizard: React.FC = () => {
         submitterName: currentDraft.submitterName || "",
         submitterDepartment: currentDraft.submitterDepartment || "",
         requestedTimeline: currentDraft.requestedTimeline || "",
-        aiRequest: currentDraft.aiRequest || INITIAL_FORM_DATA.aiRequest,
-        autoAssignedRisk: currentDraft.autoAssignedRisk || "Low",
-        riskLevel: currentDraft.riskLevel || "Low",
-        riskOverridden: currentDraft.riskOverridden || false,
-        riskOverrideJustification: currentDraft.riskOverrideJustification || "",
+        supportingDocuments: currentDraft.supportingDocuments || [],
+        isEmergency: currentDraft.isEmergency || false,
+        emergencyActionTaken: currentDraft.emergencyActionTaken || "",
+        emergencyActionTakenAt: currentDraft.emergencyActionTakenAt || "",
+        aiRequest: currentDraft.aiRequest || EMPTY_AI_REQUEST,
+        riskLevel: currentDraft.riskLevel || "",
+        riskJustification: currentDraft.riskJustification || "",
         businessJustification: currentDraft.businessJustification || "",
         rollbackPlan: currentDraft.rollbackPlan || INITIAL_FORM_DATA.rollbackPlan,
         approvalPlan: currentDraft.approvalPlan || [],
@@ -193,14 +210,7 @@ const NewChangeWizard: React.FC = () => {
   const updateFormData = (partial: Partial<WizardFormData>) => {
     setFormData((prev) => {
       const next = { ...prev, ...partial };
-      // Auto-recalculate risk when category changes
-      if (partial.category !== undefined) {
-        const autoRisk = deriveRisk(next.category, categories);
-        next.autoAssignedRisk = autoRisk;
-        if (!next.riskOverridden) {
-          next.riskLevel = autoRisk;
-        }
-      }
+      const kind = getCategoryKind(next.category, categories);
 
       // Sync back to Redux draft request
       if (draftId && currentDraft) {
@@ -210,23 +220,36 @@ const NewChangeWizard: React.FC = () => {
             title: next.title,
             description: next.description,
             systemAffected: next.systemAffected,
-            category: next.category as any,
+            category: next.category,
             businessJustification: next.businessJustification,
             requestedTimeline: next.requestedTimeline,
+            supportingDocuments: next.supportingDocuments,
+            isEmergency: next.isEmergency,
+            emergencyActionTaken: next.emergencyActionTaken,
+            emergencyActionTakenAt: next.emergencyActionTakenAt,
             riskLevel: next.riskLevel,
-            riskOverridden: next.riskOverridden,
-            riskOverrideJustification: next.riskOverrideJustification,
-            autoAssignedRisk: next.autoAssignedRisk,
-            aiRequest: next.category === "AI" ? next.aiRequest : undefined,
+            riskJustification: next.riskJustification,
+            aiRequest: kind === "ai_build" ? next.aiRequest : undefined,
             rollbackPlan: next.rollbackPlan,
             approvalPlan: next.approvalPlan,
             updatedAt: new Date().toISOString(),
-          })
+          }),
         );
       }
       return next;
     });
   };
+
+  const categoryKind = getCategoryKind(formData.category, categories);
+
+  // AI-build requests that are internal-only and touch no staff/sensitive data
+  // self-certify against the AI policy instead of going through approval.
+  const isSelfCertify =
+    categoryKind === "ai_build" &&
+    !formData.isEmergency &&
+    formData.aiRequest.whoUsesSoftware === "Internal" &&
+    formData.aiRequest.requiresStaffPersonalData === "No" &&
+    formData.aiRequest.requiresSensitiveData === "No";
 
   /* ── Steps definition ── */
   const steps = [
@@ -235,7 +258,7 @@ const NewChangeWizard: React.FC = () => {
       label: "General Info",
       path: "/self/changes/new/general",
     },
-    ...(formData.category === "AI"
+    ...(categoryKind === "ai_build"
       ? [
           {
             key: "ai-request",
@@ -244,21 +267,31 @@ const NewChangeWizard: React.FC = () => {
           },
         ]
       : []),
-    {
-      key: "risk",
-      label: "Risk & Justification",
-      path: "/self/changes/new/risk",
-    },
-    {
-      key: "rollback",
-      label: "Rollback Plan",
-      path: "/self/changes/new/rollback",
-    },
-    {
-      key: "review",
-      label: "Review & Submit",
-      path: "/self/changes/new/review",
-    },
+    ...(isSelfCertify
+      ? [
+          {
+            key: "ai-policy",
+            label: "AI Policy",
+            path: "/self/changes/new/ai-policy",
+          },
+        ]
+      : [
+          {
+            key: "risk",
+            label: "Risk & Justification",
+            path: "/self/changes/new/risk",
+          },
+          {
+            key: "rollback",
+            label: "Rollback Plan",
+            path: "/self/changes/new/rollback",
+          },
+          {
+            key: "review",
+            label: "Review & Submit",
+            path: "/self/changes/new/review",
+          },
+        ]),
   ];
 
   const currentStepIdx = steps.findIndex((s) =>
@@ -275,7 +308,7 @@ const NewChangeWizard: React.FC = () => {
             ...currentDraft,
             draftStep: stepKey,
             updatedAt: new Date().toISOString(),
-          })
+          }),
         );
       }
     }
@@ -286,6 +319,8 @@ const NewChangeWizard: React.FC = () => {
     setFormData,
     updateFormData,
     draftId,
+    categoryKind,
+    isSelfCertify,
   };
 
   if (!draftId) {
@@ -295,6 +330,11 @@ const NewChangeWizard: React.FC = () => {
       </div>
     );
   }
+
+  const isLastStep = currentStepIdx === steps.length - 1;
+  const submitLabel = isSelfCertify
+    ? "Acknowledge & Submit"
+    : "Submit Change Request";
 
   return (
     <WizardContext.Provider value={ctxValue}>
@@ -343,9 +383,7 @@ const NewChangeWizard: React.FC = () => {
                   type="primary"
                   className="bg-primary! h-10! cursor-pointer rounded-lg! px-6! leading-5! font-semibold! text-white! shadow-none!"
                 >
-                  {currentStepIdx === steps.length - 1
-                    ? "Submit Change Request"
-                    : "Save & Next"}
+                  {isLastStep ? submitLabel : "Save & Next"}
                 </Button>
               </div>
             </div>,

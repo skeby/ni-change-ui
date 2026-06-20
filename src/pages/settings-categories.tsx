@@ -14,7 +14,9 @@ import {
   addCategory,
   updateCategory,
   removeCategory,
+  CATEGORY_KIND_LABELS,
   type CategoryOption,
+  type ChangeCategoryKind,
 } from "../state/slices/settings-slice";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -22,31 +24,29 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import FormField from "../components/ui/form-field";
 import { FORM } from "../static";
-import Tag from "../components/ui/tag";
-import { Utils } from "../utils";
 
 const categorySchema = z.object({
   name: z.string().min(1, "Category name is required"),
-  defaultRisk: z.string().min(1, "Default risk level is required"),
+  kind: z.enum(["ai_license", "ai_build", "update_existing", "new_system"]),
   active: z.boolean(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
 
+const kindOptions = (
+  Object.entries(CATEGORY_KIND_LABELS) as [ChangeCategoryKind, string][]
+).map(([value, label]) => ({ value, label }));
+
 export const SettingsCategories: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { categories, riskLevels } = useAppSelector((state) => state.settings);
-
-  const riskLevelOptions = [...riskLevels]
-    .sort((a, b) => a.severity - b.severity)
-    .map((r) => ({ label: r.name, value: r.name }));
+  const { categories } = useAppSelector((state) => state.settings);
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const defaultValues: CategoryFormValues = {
     name: "",
-    defaultRisk: riskLevels[0]?.name ?? "",
+    kind: "update_existing",
     active: true,
   };
 
@@ -65,7 +65,7 @@ export const SettingsCategories: React.FC = () => {
     setEditingId(category.id);
     reset({
       name: category.name,
-      defaultRisk: category.defaultRisk,
+      kind: category.kind,
       active: category.active,
     });
     setIsOpen(true);
@@ -100,13 +100,13 @@ export const SettingsCategories: React.FC = () => {
       ),
     },
     {
-      key: "defaultRisk",
-      dataIndex: "defaultRisk",
-      title: "Default Risk Level",
+      key: "kind",
+      dataIndex: "kind",
+      title: "Kind",
       render: (_, record) => (
-        <Tag color={Utils.resolveRiskColor(riskLevels, record.defaultRisk)}>
-          {record.defaultRisk}
-        </Tag>
+        <span className="bg-bg-muted text-secondary-alpha rounded-md px-2 py-0.5 text-xs font-semibold">
+          {CATEGORY_KIND_LABELS[record.kind]}
+        </span>
       ),
     },
     {
@@ -201,7 +201,7 @@ export const SettingsCategories: React.FC = () => {
               {editingId ? "Edit Category" : "Add New Category"}
             </h3>
             <p className="text-body-xs text-fade-2 font-medium">
-              Configure the category name, default risk level, and active
+              Configure the category name, kind, and active
               status.
             </p>
           </div>
@@ -221,15 +221,15 @@ export const SettingsCategories: React.FC = () => {
 
             <FormField
               control={control}
-              name="defaultRisk"
-              label="Default Risk Level"
+              name="kind"
+              label="Kind"
               labelProps={FORM.LABEL_PROPS}
             >
               <Select
                 showSearch={{ optionFilterProp: "label" }}
-                options={riskLevelOptions}
+                options={kindOptions}
                 className={FORM.CLASS_NAME}
-                placeholder="Select risk level"
+                placeholder="Select kind"
               />
             </FormField>
 

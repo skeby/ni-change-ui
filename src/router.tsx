@@ -86,6 +86,10 @@ const router = createBrowserRouter([
                 lazy: lazyRoute(() => import("./pages/new-change/ai-request")),
               },
               {
+                path: "ai-policy",
+                lazy: lazyRoute(() => import("./pages/new-change/ai-policy")),
+              },
+              {
                 path: "risk",
                 lazy: lazyRoute(() => import("./pages/new-change/risk")),
               },
@@ -126,6 +130,10 @@ const router = createBrowserRouter([
           {
             path: "settings/risk-levels",
             lazy: lazyRoute(() => import("./pages/settings-risk-levels")),
+          },
+          {
+            path: "settings/approval-rules",
+            lazy: lazyRoute(() => import("./pages/settings-approval-rules")),
           },
           {
             path: "settings/users",

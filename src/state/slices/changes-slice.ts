@@ -18,13 +18,9 @@ export type ChangeStatus =
 // admin-managed list rather than a fixed union.
 export type RiskLevel = string
 
-export type ChangeCategory =
-  | "New Feature"
-  | "Bug Fix"
-  | "Configuration Change"
-  | "Integration"
-  | "Security Patch"
-  | "AI"
+// References a CategoryOption.name in the settings slice — admin-managed,
+// so a string rather than a fixed union (mirrors RiskLevel).
+export type ChangeCategory = string
 
 export interface TimelineEvent {
   stage: string
@@ -103,7 +99,6 @@ export interface ResolvedApprovalStage {
 }
 
 export interface AIRequestData {
-  frequency: string
   ruleEngine: string
   aiMl: string
   human: string
@@ -113,13 +108,16 @@ export interface AIRequestData {
   currentSolution: string
   successMetrics: string
   simplerAlternative: string
-  globalUse: string
-  requiresStaffData: string
-  requiresSensitiveData: string
-  externalUsers: string
-  internalOnly: string
-  bothUsers: string
   duration: string
+  // Who will use this software (replaces the old internal/external/both flags)
+  whoUsesSoftware: string // "Internal" | "External" | "Both"
+  requiresStaffPersonalData: string // "Yes" | "No"
+  requiresSensitiveData: string // "Yes" | "No"
+  usesProductionData: string // "Yes" | "No"
+  usesDefaultStack: string // "Yes" | "No"
+  llmChoices: string[]
+  integratesWithSystems: string[]
+  postBuildSupport: string // "Deployment" | "Code Review" | "Both" | "Neither"
 }
 
 export interface ChangeRequest {
@@ -135,14 +133,17 @@ export interface ChangeRequest {
   submitterDepartment: string
   status: ChangeStatus
   riskLevel: RiskLevel
-  riskOverridden: boolean
-  riskOverrideJustification?: string
-  autoAssignedRisk: RiskLevel
+  riskJustification: string // requester's rationale for the chosen risk level
   selectedApprover?: string // legacy single-approver field (older mock rows)
   approvalPlan?: ResolvedApprovalStage[]
   approvals: ApprovalRecord[]
   aiRequest?: AIRequestData
   rollbackPlan?: RollbackPlan
+  supportingDocuments?: EvidenceFile[]
+  // Emergency change: urgent action already taken, recorded for retroactive review.
+  isEmergency?: boolean
+  emergencyActionTaken?: string
+  emergencyActionTakenAt?: string
   testPlan: string
   testSteps: TestStep[]
   evidence: EvidenceFile[]
@@ -163,7 +164,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       title: "Update invoice approval workflow in NetSuite",
       description: "Modify the invoice approval workflow to add a secondary approval step for invoices over $10,000. This includes updating the workflow rules and notification templates.",
       systemAffected: "NetSuite",
-      category: "Configuration Change",
+      category: "Update Existing System",
       businessJustification: "Finance team requires additional oversight for large invoices to comply with updated internal audit requirements.",
       requestedTimeline: "2026-07-01",
       submitterId: "sarah.j@company.com",
@@ -171,8 +172,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       submitterDepartment: "Finance",
       status: "Under Review",
       riskLevel: "Medium",
-      riskOverridden: false,
-      autoAssignedRisk: "Medium",
+      riskJustification: "Workflow change affects financial approvals but is reversible and scoped to a single module.",
       approvals: [],
       testPlan: "",
       testSteps: [],
@@ -191,7 +191,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       title: "Salesforce CRM field validation update",
       description: "Add required field validation for the Opportunity close date and update picklist values for the Lead Source field.",
       systemAffected: "Salesforce",
-      category: "Bug Fix",
+      category: "Update Existing System",
       businessJustification: "Sales team has been entering incomplete data, leading to inaccurate pipeline reports.",
       requestedTimeline: "2026-06-20",
       submitterId: "marcus.v@company.com",
@@ -199,8 +199,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       submitterDepartment: "Operations",
       status: "Approved",
       riskLevel: "Low",
-      riskOverridden: false,
-      autoAssignedRisk: "Low",
+      riskJustification: "Field validation tweak with no data migration; trivial to revert.",
       selectedApprover: "adeyinka@company.com",
       approvals: [
         { approverId: "adeyinka@company.com", approverName: "Adeyinka Akinsanya", action: "approved", timestamp: "2026-06-12T14:00:00Z", comment: "Looks good, proceed with testing.", handledInHouse: true, costInvolved: false },
@@ -239,7 +238,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       title: "ERP data migration — vendor master records",
       description: "Migrate 2,500 vendor master records from legacy ERP to new NetSuite instance, including bank details and payment terms.",
       systemAffected: "ERP",
-      category: "Integration",
+      category: "Update Existing System",
       businessJustification: "Legacy ERP is being decommissioned by Q3 2026. Vendor records must be migrated to maintain procurement operations.",
       requestedTimeline: "2026-08-01",
       submitterId: "adeyinka@company.com",
@@ -247,8 +246,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       submitterDepartment: "IT",
       status: "In Testing",
       riskLevel: "High",
-      riskOverridden: false,
-      autoAssignedRisk: "High",
+      riskJustification: "Bulk migration of 2,500 financial records with bank details; high blast radius if mapping is wrong.",
       approvals: [
         { approverId: "sarah.j@company.com", approverName: "Sarah Jenkins", action: "approved", timestamp: "2026-06-08T11:00:00Z", comment: "Finance confirms vendor data mapping is correct." },
         { approverId: "marcus.v@company.com", approverName: "Marcus Vance", action: "approved", timestamp: "2026-06-09T09:00:00Z", comment: "IT review complete. Proceed to sandbox testing.", handledInHouse: true, costInvolved: true, estimatedCost: 5000 },
@@ -285,7 +283,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       title: "SharePoint permission matrix update",
       description: "Update document library permissions for the HR department to restrict access to employee compensation files.",
       systemAffected: "SharePoint",
-      category: "Security Patch",
+      category: "Update Existing System",
       businessJustification: "Internal audit finding: compensation data accessible to non-HR staff through inherited permissions.",
       requestedTimeline: "2026-06-18",
       submitterId: "elena.r@company.com",
@@ -293,9 +291,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       submitterDepartment: "HR",
       status: "Deployed",
       riskLevel: "High",
-      riskOverridden: true,
-      riskOverrideJustification: "Originally flagged as medium, but elevated to high due to sensitive compensation data involved.",
-      autoAssignedRisk: "Medium",
+      riskJustification: "Touches sensitive compensation data; incorrect permissions could expose confidential records.",
       approvals: [
         { approverId: "sarah.j@company.com", approverName: "Sarah Jenkins", action: "approved", timestamp: "2026-06-06T15:00:00Z" },
         { approverId: "adeyinka@company.com", approverName: "Adeyinka Akinsanya", action: "approved", timestamp: "2026-06-07T10:00:00Z", handledInHouse: true, costInvolved: false },
@@ -342,7 +338,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       title: "Power BI dashboard — monthly KPI report",
       description: "Create a new Power BI dashboard showing monthly KPIs including revenue, headcount, and project completion rates.",
       systemAffected: "Power BI",
-      category: "New Feature",
+      category: "Build New Software/System",
       businessJustification: "Executive leadership requested a consolidated KPI view for monthly board meetings.",
       requestedTimeline: "2026-07-15",
       submitterId: "adeyinka@company.com",
@@ -350,8 +346,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       submitterDepartment: "IT",
       status: "Draft",
       riskLevel: "Low",
-      riskOverridden: false,
-      autoAssignedRisk: "Low",
+      riskJustification: "Read-only reporting dashboard with no impact on source systems.",
       approvals: [],
       testPlan: "",
       testSteps: [],
@@ -369,7 +364,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       title: "HRIS employee onboarding automation",
       description: "Automate the new employee onboarding workflow in HRIS including account provisioning, equipment requests, and orientation scheduling.",
       systemAffected: "HRIS",
-      category: "New Feature",
+      category: "Build New Software/System",
       businessJustification: "Current manual onboarding process takes 3-5 days. Automation would reduce it to same-day completion.",
       requestedTimeline: "2026-08-15",
       submitterId: "elena.r@company.com",
@@ -377,8 +372,7 @@ const generateMockChanges = (): ChangeRequest[] => {
       submitterDepartment: "HR",
       status: "Submitted",
       riskLevel: "Medium",
-      riskOverridden: false,
-      autoAssignedRisk: "Medium",
+      riskJustification: "New automation across multiple HR workflows; moderate risk if provisioning misfires.",
       approvals: [],
       testPlan: "",
       testSteps: [],

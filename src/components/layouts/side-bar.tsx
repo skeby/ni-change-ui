@@ -11,6 +11,7 @@ import {
   FaShieldAlt,
   FaServer,
   FaListAlt,
+  FaSitemap,
 } from "react-icons/fa";
 import { BiSolidUser } from "react-icons/bi";
 import { Tooltip } from "antd";
@@ -96,6 +97,11 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
           name: "Risk Levels",
           path: "/settings/risk-levels",
           icon: FaShieldAlt,
+        },
+        {
+          name: "Approval Rules",
+          path: "/settings/approval-rules",
+          icon: FaSitemap,
         },
         { name: "Systems", path: "/settings/systems", icon: FaServer },
         { name: "Users", path: "/settings/users", icon: FaUsersCog },

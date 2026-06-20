@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Select, Modal, message } from "antd";
-import { ShieldAlert, CheckCircle } from "lucide-react";
+import { ShieldAlert, CheckCircle, Siren } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "../../state/store";
 import { addChange, deleteChange } from "../../state/slices/changes-slice";
 import type {
@@ -11,18 +11,21 @@ import type {
 import { useWizard } from "./new-change-wizard";
 import { cn } from "../../utils/cn";
 import { Utils } from "../../utils";
-import FormField from "../../components/ui/form-field";
 import Tag from "../../components/ui/tag";
 import type { FieldError } from "react-hook-form";
 
 const ReviewStep: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { formData, draftId } = useWizard();
+  const { formData, draftId, categoryKind } = useWizard();
   const { changes } = useAppSelector((state) => state.changes);
   const { currentUserId, users } = useAppSelector((state) => state.auth);
   const riskLevels = useAppSelector((state) => state.settings.riskLevels);
+  const approvalRules = useAppSelector((state) => state.settings.approvalRules);
   const currentUser = users.find((u) => u.id === currentUserId);
+
+  const isAIBuild = categoryKind === "ai_build";
+  const isEmergency = formData.isEmergency;
 
   const riskColor = Utils.resolveRiskColor(riskLevels, formData.riskLevel);
   const isLowestSeverity =
@@ -41,21 +44,40 @@ const ReviewStep: React.FC = () => {
     .filter((u) => u.id !== currentUserId && u.baseRoles.includes("Approver"))
     .map((u) => ({ label: `${u.name} (${u.department})`, value: u.id }));
 
-  // Approval stages configured for this change's risk level
+  // Approval stages resolved from the Risk × Category × System rule matrix.
+  // Emergency changes record action already taken, so they bypass approval.
   const configuredStages = useMemo(
     () =>
-      riskLevels.find((r) => r.name === formData.riskLevel)?.approvalStages ??
-      [],
-    [riskLevels, formData.riskLevel],
+      isEmergency
+        ? []
+        : Utils.resolveApprovalStages(
+            approvalRules,
+            formData.category,
+            formData.systemAffected || "Any",
+            formData.riskLevel,
+          ),
+    [
+      approvalRules,
+      formData.category,
+      formData.systemAffected,
+      formData.riskLevel,
+      isEmergency,
+    ],
   );
 
   const routingExplanation = useMemo(() => {
+    if (isEmergency) {
+      return {
+        icon: <Siren className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />,
+        text: "Emergency change: the action has already been taken. This will be recorded as approved and flagged for retroactive review — no approver selection is needed.",
+      };
+    }
     if (configuredStages.length === 0) {
       return {
         icon: (
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
         ),
-        text: `No approval stages are configured for ${formData.riskLevel} risk changes yet. Contact an admin to configure this under Settings → Risk Levels before submitting.`,
+        text: `No approval rule matches this ${formData.riskLevel} risk ${formData.category} change yet. Contact an admin to configure a rule under Settings → Approval Rules before submitting.`,
       };
     }
     if (isLowestSeverity) {
@@ -70,7 +92,7 @@ const ReviewStep: React.FC = () => {
       icon: <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />,
       text: `This is a ${formData.riskLevel.toLowerCase()} risk change. It will follow the ${configuredStages.length}-stage approval chain below before it can proceed.`,
     };
-  }, [configuredStages, formData.riskLevel, isLowestSeverity]);
+  }, [configuredStages, formData.riskLevel, formData.category, isLowestSeverity, isEmergency]);
 
   const handleTriggerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,13 +101,15 @@ const ReviewStep: React.FC = () => {
   };
 
   const handleConfirmSubmit = () => {
-    const missingApprover = configuredStages.some(
-      (s) => !approverSelections[s.id],
-    );
-    if (missingApprover) {
-      setSubmitAttempted(true);
-      message.error("Select an approver for each stage.");
-      return;
+    if (!isEmergency) {
+      const missingApprover = configuredStages.some(
+        (s) => !approverSelections[s.id],
+      );
+      if (missingApprover) {
+        setSubmitAttempted(true);
+        message.error("Select an approver for each stage.");
+        return;
+      }
     }
 
     const now = new Date().toISOString();
@@ -106,45 +130,65 @@ const ReviewStep: React.FC = () => {
       title: formData.title,
       description: formData.description,
       systemAffected: formData.systemAffected,
-      category: formData.category as ChangeRequest["category"],
+      category: formData.category,
       businessJustification: formData.businessJustification,
       requestedTimeline: formData.requestedTimeline,
       submitterId: currentUserId,
       submitterName: currentUser?.name || "",
       submitterDepartment: currentUser?.department || "",
-      status: "Submitted",
+      status: isEmergency ? "Approved" : "Submitted",
       riskLevel: formData.riskLevel,
-      riskOverridden: formData.riskOverridden,
-      riskOverrideJustification:
-        formData.riskOverrideJustification || undefined,
-      autoAssignedRisk: formData.autoAssignedRisk,
+      riskJustification: formData.riskJustification,
+      isEmergency: isEmergency || undefined,
+      emergencyActionTaken: isEmergency
+        ? formData.emergencyActionTaken
+        : undefined,
+      emergencyActionTakenAt: isEmergency
+        ? formData.emergencyActionTakenAt
+        : undefined,
       approvalPlan,
       selectedApprover: approvalPlan.find((s) => s.type === "generic")
         ?.approverId,
       approvals: [],
-      aiRequest: formData.category === "AI" ? formData.aiRequest : undefined,
-      rollbackPlan: formData.rollbackPlan.steps
-        ? formData.rollbackPlan
-        : undefined,
+      aiRequest: isAIBuild ? formData.aiRequest : undefined,
+      rollbackPlan: formData.rollbackPlan,
+      supportingDocuments: formData.supportingDocuments,
       testPlan: "",
       testSteps: [],
       evidence: [],
-      timeline: [
-        {
-          stage: "Draft",
-          actorName: currentUser?.name || "",
-          actorId: currentUserId,
-          action: "Created draft",
-          timestamp: now,
-        },
-        {
-          stage: "Submitted",
-          actorName: currentUser?.name || "",
-          actorId: currentUserId,
-          action: "Submitted for review",
-          timestamp: now,
-        },
-      ],
+      timeline: isEmergency
+        ? [
+            {
+              stage: "Draft",
+              actorName: currentUser?.name || "",
+              actorId: currentUserId,
+              action: "Created draft",
+              timestamp: now,
+            },
+            {
+              stage: "Approved",
+              actorName: currentUser?.name || "",
+              actorId: currentUserId,
+              action: "Emergency action recorded — pending retroactive review",
+              timestamp: now,
+            },
+          ]
+        : [
+            {
+              stage: "Draft",
+              actorName: currentUser?.name || "",
+              actorId: currentUserId,
+              action: "Created draft",
+              timestamp: now,
+            },
+            {
+              stage: "Submitted",
+              actorName: currentUser?.name || "",
+              actorId: currentUserId,
+              action: "Submitted for review",
+              timestamp: now,
+            },
+          ],
       comments: [],
       isQueried: false,
       createdAt: now,
@@ -154,7 +198,11 @@ const ReviewStep: React.FC = () => {
     dispatch(deleteChange(draftId));
     dispatch(addChange(changeRequest));
 
-    message.success("Change request submitted");
+    message.success(
+      isEmergency
+        ? "Emergency change recorded for retroactive review"
+        : "Change request submitted",
+    );
     setIsSubmitModalOpen(false);
     navigate("/self/changes");
   };
@@ -163,13 +211,20 @@ const ReviewStep: React.FC = () => {
     <form id="step-form" onSubmit={handleTriggerSubmit} className="space-y-6">
       {/* General Information Summary */}
       <div className="card space-y-4 p-6">
-        <h3 className="card-title">General Information</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="card-title">General Information</h3>
+          {isEmergency && (
+            <Tag color="#ef4444" format={false}>
+              Emergency Change
+            </Tag>
+          )}
+        </div>
 
         <div className="text-body-sm space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <SummaryField
               label="System Affected"
-              value={formData.systemAffected}
+              value={formData.systemAffected || "N/A (new system)"}
             />
             <SummaryField label="Category" value={formData.category} />
             <SummaryField label="Submitter" value={formData.submitterName} />
@@ -200,17 +255,44 @@ const ReviewStep: React.FC = () => {
               "{formData.description}"
             </span>
           </div>
+
+          {isEmergency && (
+            <div className="border-border-muted border-t pt-3">
+              <SummaryField
+                label="Emergency Action Taken"
+                value={formData.emergencyActionTaken}
+                full
+              />
+              <div className="mt-3">
+                <SummaryField
+                  label="Action Taken At"
+                  value={
+                    formData.emergencyActionTakenAt
+                      ? new Date(
+                          formData.emergencyActionTakenAt,
+                        ).toLocaleString()
+                      : ""
+                  }
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* AI Request Summary (conditional) */}
-      {formData.category === "AI" && (
+      {isAIBuild && (
         <div className="card space-y-4 p-6">
           <h3 className="card-title">AI Request Details</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <SummaryField
-              label="Frequency"
-              value={formData.aiRequest.frequency}
+              label="Who Uses It"
+              value={formData.aiRequest.whoUsesSoftware}
+            />
+            <SummaryField label="Duration" value={formData.aiRequest.duration} />
+            <SummaryField
+              label="Problem Complexity"
+              value={formData.aiRequest.problemComplexity}
             />
             <SummaryField
               label="Rule Engine"
@@ -226,8 +308,38 @@ const ReviewStep: React.FC = () => {
               value={formData.aiRequest.statisticalModeling}
             />
             <SummaryField
-              label="Problem Complexity"
-              value={formData.aiRequest.problemComplexity}
+              label="Staff Personal Data"
+              value={formData.aiRequest.requiresStaffPersonalData}
+            />
+            <SummaryField
+              label="Sensitive Data"
+              value={formData.aiRequest.requiresSensitiveData}
+            />
+            <SummaryField
+              label="Production Data"
+              value={formData.aiRequest.usesProductionData}
+            />
+            <SummaryField
+              label="Uses Default Stack"
+              value={formData.aiRequest.usesDefaultStack}
+            />
+            <SummaryField
+              label="Post-build Support"
+              value={formData.aiRequest.postBuildSupport}
+            />
+            <SummaryField
+              label="LLMs Considered"
+              value={formData.aiRequest.llmChoices.join(", ")}
+              full
+            />
+            <SummaryField
+              label="Integrates With"
+              value={
+                formData.aiRequest.integratesWithSystems.length
+                  ? formData.aiRequest.integratesWithSystems.join(", ")
+                  : "None"
+              }
+              full
             />
             <SummaryField
               label="Problem Description"
@@ -249,34 +361,6 @@ const ReviewStep: React.FC = () => {
               value={formData.aiRequest.simplerAlternative}
               full
             />
-            <SummaryField
-              label="Global Use"
-              value={formData.aiRequest.globalUse}
-            />
-            <SummaryField
-              label="Staff Data"
-              value={formData.aiRequest.requiresStaffData}
-            />
-            <SummaryField
-              label="Sensitive Data"
-              value={formData.aiRequest.requiresSensitiveData}
-            />
-            <SummaryField
-              label="External Users"
-              value={formData.aiRequest.externalUsers}
-            />
-            <SummaryField
-              label="Internal Only"
-              value={formData.aiRequest.internalOnly}
-            />
-            <SummaryField
-              label="Both Users"
-              value={formData.aiRequest.bothUsers}
-            />
-            <SummaryField
-              label="Duration"
-              value={formData.aiRequest.duration}
-            />
           </div>
         </div>
       )}
@@ -286,22 +370,22 @@ const ReviewStep: React.FC = () => {
         <h3 className="card-title">Risk & Justification</h3>
 
         <div className="text-body-sm space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
-                Risk Level
-              </span>
-              <Tag color={riskColor} className="mt-1">
-                {formData.riskLevel}
-                {formData.riskOverridden && " (overridden)"}
-              </Tag>
-            </div>
-            {formData.riskOverridden && (
-              <SummaryField
-                label="Override Justification"
-                value={formData.riskOverrideJustification}
-              />
-            )}
+          <div>
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Risk Level
+            </span>
+            <Tag color={riskColor} className="mt-1">
+              {formData.riskLevel}
+            </Tag>
+          </div>
+
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Risk Justification
+            </span>
+            <span className="text-fade mt-1 block leading-relaxed font-medium">
+              "{formData.riskJustification}"
+            </span>
           </div>
 
           <div className="border-border-muted border-t pt-3">
@@ -315,32 +399,32 @@ const ReviewStep: React.FC = () => {
         </div>
       </div>
 
-      {/* Rollback Plan Summary */}
-      {formData.rollbackPlan.steps && (
-        <div className="card space-y-4 p-6">
-          <h3 className="card-title">Rollback Plan</h3>
+      {/* Rollback Plan Summary (always present — rollback is mandatory) */}
+      <div className="card space-y-4 p-6">
+        <h3 className="card-title">Rollback Plan</h3>
 
-          <div className="text-body-sm space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <SummaryField
-                label="Responsible Person"
-                value={formData.rollbackPlan.responsiblePerson}
-              />
-              <SummaryField
-                label="Estimated Time"
-                value={formData.rollbackPlan.estimatedTime}
-              />
-            </div>
+        <div className="text-body-sm space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <SummaryField
+              label="Responsible Person"
+              value={formData.rollbackPlan.responsiblePerson}
+            />
+            <SummaryField
+              label="Estimated Time"
+              value={formData.rollbackPlan.estimatedTime}
+            />
+          </div>
 
-            <div className="border-border-muted border-t pt-3">
-              <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
-                Rollback Steps
-              </span>
-              <span className="text-fade mt-1 block leading-relaxed font-medium">
-                "{formData.rollbackPlan.steps}"
-              </span>
-            </div>
+          <div className="border-border-muted border-t pt-3">
+            <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
+              Rollback Steps
+            </span>
+            <span className="text-fade mt-1 block leading-relaxed font-medium">
+              "{formData.rollbackPlan.steps}"
+            </span>
+          </div>
 
+          {formData.rollbackPlan.dependencies && (
             <div className="border-border-muted border-t pt-3">
               <span className="text-fade-2 block text-[10px] font-bold tracking-wider uppercase">
                 Dependencies & Risks
@@ -349,25 +433,27 @@ const ReviewStep: React.FC = () => {
                 "{formData.rollbackPlan.dependencies}"
               </span>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Submit Confirmation Modal */}
       <Modal
         title={
           <div>
             <h3 className="text-h1 text-primary-alpha font-bold">
-              Submit Change Request
+              {isEmergency ? "Record Emergency Change" : "Submit Change Request"}
             </h3>
             <p className="text-body-xs text-fade-2 font-medium">
-              Review the approval routing and confirm submission.
+              {isEmergency
+                ? "Confirm the emergency action record."
+                : "Review the approval routing and confirm submission."}
             </p>
           </div>
         }
         open={isSubmitModalOpen}
         onCancel={() => setIsSubmitModalOpen(false)}
-        okText="Confirm & Submit"
+        okText={isEmergency ? "Confirm & Record" : "Confirm & Submit"}
         cancelText="Cancel"
         okButtonProps={{
           className:
@@ -397,13 +483,12 @@ const ReviewStep: React.FC = () => {
           </div>
 
           {/* Approval Chain Timeline */}
-          {configuredStages.length > 0 && (
+          {!isEmergency && configuredStages.length > 0 && (
             <div className="relative ml-3 space-y-5 pl-6">
               {configuredStages.map((stage, idx) => {
                 const isLast = idx === configuredStages.length - 1;
                 const fieldError: FieldError | undefined =
-                  submitAttempted &&
-                  !approverSelections[stage.id]
+                  submitAttempted && !approverSelections[stage.id]
                     ? { type: "required", message: "Select an approver" }
                     : undefined;
 
@@ -417,10 +502,9 @@ const ReviewStep: React.FC = () => {
                     </span>
 
                     {stage.type === "role_based" ? (
-                      <FormField
+                      <FormFieldShim
                         label={`Stage ${idx + 1}: ${stage.role}`}
                         error={fieldError}
-                        rootClassName="mb-0!"
                       >
                         <Select
                           value={approverSelections[stage.id] || undefined}
@@ -433,16 +517,21 @@ const ReviewStep: React.FC = () => {
                           placeholder="Select an approver..."
                           className="h-11! w-full"
                           options={users
-                            .filter((u) => stage.role && u.baseRoles.includes(stage.role))
-                            .map((u) => ({ label: `${u.name} (${u.department})`, value: u.id }))}
+                            .filter(
+                              (u) =>
+                                stage.role && u.baseRoles.includes(stage.role),
+                            )
+                            .map((u) => ({
+                              label: `${u.name} (${u.department})`,
+                              value: u.id,
+                            }))}
                           status={fieldError ? "error" : undefined}
                         />
-                      </FormField>
+                      </FormFieldShim>
                     ) : (
-                      <FormField
+                      <FormFieldShim
                         label={`Stage ${idx + 1}: Requester Selects Approver`}
                         error={fieldError}
-                        rootClassName="mb-0!"
                       >
                         <Select
                           value={approverSelections[stage.id] || undefined}
@@ -457,7 +546,7 @@ const ReviewStep: React.FC = () => {
                           options={approverOptions}
                           status={fieldError ? "error" : undefined}
                         />
-                      </FormField>
+                      </FormFieldShim>
                     )}
                   </div>
                 );
@@ -471,6 +560,20 @@ const ReviewStep: React.FC = () => {
 };
 
 /* ── Helper Components ── */
+
+const FormFieldShim: React.FC<{
+  label: string;
+  error?: FieldError;
+  children: React.ReactNode;
+}> = ({ label, error, children }) => (
+  <div className="mb-0">
+    <span className="text-fade-2 mb-1 block text-[11px] font-bold tracking-wider uppercase">
+      {label}
+    </span>
+    {children}
+    {error && <span className="text-error mt-1 block text-sm">{error.message}</span>}
+  </div>
+);
 
 const SummaryField: React.FC<{
   label: string;

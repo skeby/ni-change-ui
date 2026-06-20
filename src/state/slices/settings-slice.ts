@@ -7,10 +7,26 @@ export interface SystemOption {
   active: boolean;
 }
 
+// Each category belongs to one of four behavioral "kinds" that drive the
+// request form flow. Admins can add multiple granular categories per kind
+// (e.g. a "DNS / Subdomain Request" under update_existing).
+export type ChangeCategoryKind =
+  | "ai_license"
+  | "ai_build"
+  | "update_existing"
+  | "new_system";
+
+export const CATEGORY_KIND_LABELS: Record<ChangeCategoryKind, string> = {
+  ai_license: "AI License Request",
+  ai_build: "Build with AI",
+  update_existing: "Existing Application Change",
+  new_system: "New Software / System",
+};
+
 export interface CategoryOption {
   id: string;
   name: string;
-  defaultRisk: string; // references a RiskLevelConfig.name
+  kind: ChangeCategoryKind;
   active: boolean;
 }
 
@@ -28,6 +44,15 @@ export interface RiskLevelConfig {
   severity: number; // ordinal rank; lower = less risky. Drives sort order and tag color (derived relative to other levels).
   maxEscalationHours: number;
   escalateTo: string;
+}
+
+// Approval routing is resolved from a matrix of rules keyed on
+// Category × System × Risk Level. "Any" acts as a wildcard for category/system.
+export interface ApprovalRule {
+  id: string;
+  category: string; // CategoryOption.name, or "Any"
+  system: string; // SystemOption.name, or "Any"
+  riskLevel: string; // RiskLevelConfig.name (always specific)
   approvalStages: ApprovalStage[];
 }
 
@@ -41,6 +66,7 @@ interface SettingsState {
   systems: SystemOption[];
   categories: CategoryOption[];
   riskLevels: RiskLevelConfig[];
+  approvalRules: ApprovalRule[];
   testChecklists: TestChecklistTemplate[];
 }
 
@@ -102,18 +128,30 @@ const initialState: SettingsState = {
     },
   ],
   categories: [
-    { id: "cat-1", name: "General Update", defaultRisk: "Low", active: true },
-    { id: "cat-2", name: "New Feature", defaultRisk: "Medium", active: true },
-    { id: "cat-3", name: "Bug Fix", defaultRisk: "Low", active: true },
     {
-      id: "cat-4",
-      name: "Configuration Change",
-      defaultRisk: "Medium",
+      id: "cat-1",
+      name: "AI Request for License",
+      kind: "ai_license",
       active: true,
     },
-    { id: "cat-5", name: "Integration", defaultRisk: "High", active: true },
-    { id: "cat-6", name: "Security Patch", defaultRisk: "High", active: true },
-    { id: "cat-7", name: "AI", defaultRisk: "High", active: true },
+    {
+      id: "cat-2",
+      name: "Need AI to Build Something",
+      kind: "ai_build",
+      active: true,
+    },
+    {
+      id: "cat-3",
+      name: "Update Existing System",
+      kind: "update_existing",
+      active: true,
+    },
+    {
+      id: "cat-4",
+      name: "Build New Software/System",
+      kind: "new_system",
+      active: true,
+    },
   ],
   riskLevels: [
     {
@@ -122,7 +160,6 @@ const initialState: SettingsState = {
       severity: 1,
       maxEscalationHours: 24,
       escalateTo: "marcus.v@company.com",
-      approvalStages: [{ id: "stg-low-1", type: "generic" }],
     },
     {
       id: "risk-medium",
@@ -130,9 +167,6 @@ const initialState: SettingsState = {
       severity: 2,
       maxEscalationHours: 48,
       escalateTo: "adeyinka@company.com",
-      approvalStages: [
-        { id: "stg-med-1", type: "role_based", role: "Department Lead" },
-      ],
     },
     {
       id: "risk-high",
@@ -140,71 +174,64 @@ const initialState: SettingsState = {
       severity: 3,
       maxEscalationHours: 48,
       escalateTo: "adeyinka@company.com",
+    },
+  ],
+  // Default routing matrix. "Any" category/system rules provide a baseline
+  // per risk level; admins add more specific rules via Settings → Approval Rules.
+  approvalRules: [
+    {
+      id: "ar-low",
+      category: "Any",
+      system: "Any",
+      riskLevel: "Low",
+      approvalStages: [{ id: "stg-low-1", type: "generic" }],
+    },
+    {
+      id: "ar-medium",
+      category: "Any",
+      system: "Any",
+      riskLevel: "Medium",
+      approvalStages: [
+        { id: "stg-med-1", type: "role_based", role: "Department Lead" },
+      ],
+    },
+    {
+      id: "ar-high",
+      category: "Any",
+      system: "Any",
+      riskLevel: "High",
       approvalStages: [
         { id: "stg-high-1", type: "role_based", role: "Department Lead" },
         { id: "stg-high-2", type: "role_based", role: "IT Manager" },
         { id: "stg-high-3", type: "role_based", role: "CAB" },
       ],
     },
+    {
+      id: "ar-ai-high",
+      category: "Need AI to Build Something",
+      system: "Any",
+      riskLevel: "High",
+      approvalStages: [
+        { id: "stg-aih-1", type: "role_based", role: "Department Lead" },
+        { id: "stg-aih-2", type: "role_based", role: "Security Officer" },
+        { id: "stg-aih-3", type: "role_based", role: "CAB" },
+      ],
+    },
   ],
   testChecklists: [
     {
       id: "tc-1",
-      category: "New Feature",
+      category: "AI Request for License",
       items: [
-        "Verify feature works as described",
-        "Test edge cases",
-        "Check permissions/access",
-        "Verify no regressions",
-        "Review UI/UX consistency",
+        "Verify license terms reviewed and accepted",
+        "Confirm vendor security/compliance documentation",
+        "Validate data handling meets policy",
+        "Check user access provisioning",
       ],
     },
     {
       id: "tc-2",
-      category: "Bug Fix",
-      items: [
-        "Reproduce original bug",
-        "Verify fix resolves the issue",
-        "Test related functionality",
-        "Verify no regressions",
-      ],
-    },
-    {
-      id: "tc-3",
-      category: "Configuration Change",
-      items: [
-        "Verify configuration applied correctly",
-        "Test affected workflows",
-        "Validate notification triggers",
-        "Check performance impact",
-      ],
-    },
-    {
-      id: "tc-4",
-      category: "Integration",
-      items: [
-        "Verify API connectivity in sandbox",
-        "Test data mapping/transformation",
-        "Validate error handling",
-        "Check authentication/authorization",
-        "Performance/load test",
-        "Verify rollback procedure",
-      ],
-    },
-    {
-      id: "tc-5",
-      category: "Security Patch",
-      items: [
-        "Verify security fix applied",
-        "Test access controls",
-        "Penetration testing (if applicable)",
-        "Verify audit logging",
-        "Check for side effects",
-      ],
-    },
-    {
-      id: "tc-6",
-      category: "AI",
+      category: "Need AI to Build Something",
       items: [
         "Verify model accuracy",
         "Test input validation",
@@ -212,6 +239,30 @@ const initialState: SettingsState = {
         "Validate data privacy compliance",
         "Performance benchmarking",
         "Test fallback behavior",
+      ],
+    },
+    {
+      id: "tc-3",
+      category: "Update Existing System",
+      items: [
+        "Verify change applied correctly",
+        "Test affected workflows",
+        "Validate notification triggers",
+        "Check performance impact",
+        "Verify no regressions",
+        "Verify rollback procedure",
+      ],
+    },
+    {
+      id: "tc-4",
+      category: "Build New Software/System",
+      items: [
+        "Verify feature works as described",
+        "Test edge cases",
+        "Check permissions/access",
+        "Validate integrations",
+        "Review UI/UX consistency",
+        "Performance/load test",
       ],
     },
   ],
@@ -264,6 +315,21 @@ const settingsSlice = createSlice({
         (r) => r.id !== action.payload,
       );
     },
+    addApprovalRule: (state, action: PayloadAction<ApprovalRule>) => {
+      state.approvalRules.push(action.payload);
+    },
+    updateApprovalRule: (
+      state,
+      action: PayloadAction<{ id: string; updates: Partial<ApprovalRule> }>,
+    ) => {
+      const rule = state.approvalRules.find((r) => r.id === action.payload.id);
+      if (rule) Object.assign(rule, action.payload.updates);
+    },
+    removeApprovalRule: (state, action: PayloadAction<string>) => {
+      state.approvalRules = state.approvalRules.filter(
+        (r) => r.id !== action.payload,
+      );
+    },
     updateTestChecklist: (
       state,
       action: PayloadAction<{ id: string; items: string[] }>,
@@ -286,6 +352,9 @@ export const {
   addRiskLevel,
   updateRiskLevel,
   removeRiskLevel,
+  addApprovalRule,
+  updateApprovalRule,
+  removeApprovalRule,
   updateTestChecklist,
 } = settingsSlice.actions;
 export default settingsSlice.reducer;

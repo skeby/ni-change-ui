@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Input, Button, Select } from "antd";
+import { Input, Select } from "antd";
 import { RotateCcw } from "lucide-react";
 import FormField from "../../components/ui/form-field";
 import { FORM } from "../../static";
@@ -46,10 +46,6 @@ const RollbackStep: React.FC = () => {
     navigate(`/self/changes/new/review?draftId=${draftId}`);
   };
 
-  const handleSkip = () => {
-    navigate(`/self/changes/new/review?draftId=${draftId}`);
-  };
-
   return (
     <div className="space-y-4">
       <form
@@ -66,17 +62,10 @@ const RollbackStep: React.FC = () => {
               <h3 className="card-title mb-1">Rollback Plan</h3>
               <p className="card-description">
                 Define the steps to revert this change if something goes wrong.
-                This step is optional but recommended for medium and high risk
-                changes.
+                A rollback plan is required for every change request.
               </p>
             </div>
           </div>
-          <Button
-            onClick={handleSkip}
-            className="border-border! text-fade! h-9! shrink-0 cursor-pointer rounded-lg! bg-transparent px-4! text-sm! leading-5! font-medium! shadow-none!"
-          >
-            Skip this step
-          </Button>
         </div>
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

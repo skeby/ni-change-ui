@@ -2,7 +2,11 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import chroma from 'chroma-js';
 import { colorMap } from '../static';
-import type { RiskLevelConfig } from '../state/slices/settings-slice';
+import type {
+  RiskLevelConfig,
+  ApprovalRule,
+  ApprovalStage,
+} from '../state/slices/settings-slice';
 
 const RISK_COLOR_SCALE = chroma
   .scale(['#10b981', '#f59e0b', '#ef4444'])
@@ -22,6 +26,33 @@ export class Utils {
     if (idx === -1) return colorMap[name.toLowerCase()] || '#6b7280';
     const t = sorted.length <= 1 ? 0 : idx / (sorted.length - 1);
     return RISK_COLOR_SCALE(t).hex();
+  }
+
+  // Resolves the approval stage chain for a change from the rule matrix,
+  // matching the most specific rule first within the request's risk level:
+  //   exact category + exact system
+  //   exact category + Any system
+  //   Any category + exact system
+  //   Any category + Any system
+  // Returns [] when no rule matches (callers render an empty-state message).
+  static resolveApprovalStages(
+    rules: ApprovalRule[],
+    category: string,
+    system: string,
+    riskLevel: string,
+  ): ApprovalStage[] {
+    const scoped = rules.filter((r) => r.riskLevel === riskLevel);
+    const precedence: ((r: ApprovalRule) => boolean)[] = [
+      (r) => r.category === category && r.system === system,
+      (r) => r.category === category && r.system === "Any",
+      (r) => r.category === "Any" && r.system === system,
+      (r) => r.category === "Any" && r.system === "Any",
+    ];
+    for (const matches of precedence) {
+      const rule = scoped.find(matches);
+      if (rule) return rule.approvalStages;
+    }
+    return [];
   }
 
   static formatCompactNumber(num: number): string {

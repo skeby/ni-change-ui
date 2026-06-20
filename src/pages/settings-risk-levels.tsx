@@ -16,30 +16,14 @@ import {
   removeRiskLevel,
   type RiskLevelConfig,
 } from "../state/slices/settings-slice";
-import { Edit, Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
-import {
-  useForm,
-  useFieldArray,
-  useWatch,
-  type SubmitHandler,
-} from "react-hook-form";
+import { Edit, Plus, Trash2 } from "lucide-react";
+import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import FormField from "../components/ui/form-field";
-import { FORM, APPROVAL_ROLES } from "../static";
+import { FORM } from "../static";
 import Tag from "../components/ui/tag";
 import { Utils } from "../utils";
-
-const stageSchema = z
-  .object({
-    id: z.string(),
-    type: z.enum(["generic", "role_based"]),
-    role: z.string().optional(),
-  })
-  .refine((s) => s.type !== "role_based" || !!s.role, {
-    message: "Select a role",
-    path: ["role"],
-  });
 
 const riskLevelSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -51,15 +35,9 @@ const riskLevelSchema = z.object({
     .min(1, "Must be at least 1 hour")
     .max(720, "Must be 720 hours or less"),
   escalateTo: z.string().min(1, "Escalation target is required"),
-  approvalStages: z
-    .array(stageSchema)
-    .min(1, "Add at least one approval stage"),
 });
 
 type RiskLevelFormValues = z.infer<typeof riskLevelSchema>;
-
-const stageSummary = (stage: RiskLevelConfig["approvalStages"][number]) =>
-  stage.type === "generic" ? "Requester picks" : stage.role || "Role";
 
 export const SettingsRiskLevels: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -84,7 +62,6 @@ export const SettingsRiskLevels: React.FC = () => {
     handleSubmit,
     control,
     reset,
-    formState: { errors },
   } = useForm<RiskLevelFormValues>({
     resolver: zodResolver(riskLevelSchema),
     defaultValues: {
@@ -92,16 +69,8 @@ export const SettingsRiskLevels: React.FC = () => {
       severity: 1,
       maxEscalationHours: 24,
       escalateTo: "",
-      approvalStages: [],
     },
   });
-
-  const { fields, append, remove, move } = useFieldArray({
-    control,
-    name: "approvalStages",
-  });
-
-  const watchedStages = useWatch({ control, name: "approvalStages" });
 
   const openAddDialog = () => {
     const nextSeverity =
@@ -114,7 +83,6 @@ export const SettingsRiskLevels: React.FC = () => {
       severity: nextSeverity,
       maxEscalationHours: 24,
       escalateTo: "",
-      approvalStages: [],
     });
     setIsOpen(true);
   };
@@ -126,11 +94,6 @@ export const SettingsRiskLevels: React.FC = () => {
       severity: config.severity,
       maxEscalationHours: config.maxEscalationHours,
       escalateTo: config.escalateTo,
-      approvalStages: config.approvalStages.map((s) => ({
-        id: s.id,
-        type: s.type,
-        role: s.role,
-      })),
     });
     setIsOpen(true);
   };
@@ -141,11 +104,6 @@ export const SettingsRiskLevels: React.FC = () => {
       severity: data.severity,
       maxEscalationHours: data.maxEscalationHours,
       escalateTo: data.escalateTo,
-      approvalStages: data.approvalStages.map((s) => ({
-        id: s.id,
-        type: s.type,
-        role: s.type === "role_based" ? s.role : undefined,
-      })),
     };
     if (editingId) {
       dispatch(updateRiskLevel({ id: editingId, updates }));
@@ -192,22 +150,6 @@ export const SettingsRiskLevels: React.FC = () => {
         <span className="text-fade font-semibold">
           {userName(record.escalateTo)}
         </span>
-      ),
-    },
-    {
-      key: "approvalStages",
-      title: "Approval Flow",
-      render: (_, record) => (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {record.approvalStages.map((stage, idx) => (
-            <React.Fragment key={stage.id}>
-              {idx > 0 && <span className="text-fade-2">→</span>}
-              <span className="bg-bg-muted text-secondary-alpha rounded-md px-2 py-0.5 text-xs font-semibold">
-                {stageSummary(stage)}
-              </span>
-            </React.Fragment>
-          ))}
-        </div>
       ),
     },
     {
@@ -297,12 +239,10 @@ export const SettingsRiskLevels: React.FC = () => {
               {editingId ? "Edit Risk Level" : "Add Risk Level"}
             </h3>
             <p className="text-body-xs text-fade-2 font-medium">
-              Configure the name, severity rank, escalation SLA, and approval
-              flow for this risk level. Tag color is assigned automatically
-              based on severity relative to other risk levels.
+              Configure the name, severity rank, and escalation SLA for this
+              risk level.
             </p>
           </div>
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
               control={control}
@@ -357,130 +297,11 @@ export const SettingsRiskLevels: React.FC = () => {
             </FormField>
           </div>
 
-          {/* Approval Flow stage editor */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className={FORM.LABEL_PROPS.className + " font-semibold"}>
-                Approval Flow
-              </label>
-              <Button
-                type="text"
-                size="small"
-                onClick={() =>
-                  append({
-                    id: `stg-${Date.now()}`,
-                    type: "role_based",
-                    role: undefined,
-                  })
-                }
-                icon={<Plus className="h-3.5 w-3.5" />}
-                className="text-primary! flex! items-center! gap-1! font-semibold!"
-              >
-                Add Stage
-              </Button>
-            </div>
-
-            {fields.length === 0 && (
-              <p className="text-body-xs text-fade-2 italic">
-                No approval stages yet. Add at least one.
-              </p>
-            )}
-
-            <div className="space-y-3">
-              {fields.map((field, index) => {
-                const stageType = watchedStages?.[index]?.type;
-                return (
-                  <div
-                    key={field.id}
-                    className="border-border bg-bg-muted/30 space-y-3 rounded-xl border p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-body-xs text-fade-2 font-bold tracking-wider uppercase">
-                        Stage {index + 1}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="text"
-                          size="small"
-                          disabled={index === 0}
-                          onClick={() => move(index, index - 1)}
-                          icon={<ArrowUp className="h-3.5 w-3.5" />}
-                          className="text-fade-2"
-                        />
-                        <Button
-                          type="text"
-                          size="small"
-                          disabled={index === fields.length - 1}
-                          onClick={() => move(index, index + 1)}
-                          icon={<ArrowDown className="h-3.5 w-3.5" />}
-                          className="text-fade-2"
-                        />
-                        <Button
-                          type="text"
-                          size="small"
-                          onClick={() => remove(index)}
-                          icon={<Trash2 className="h-3.5 w-3.5" />}
-                          className="text-red-500 hover:bg-red-50"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <FormField
-                        control={control}
-                        name={`approvalStages.${index}.type`}
-                        label="Approval Type"
-                        labelProps={FORM.LABEL_PROPS}
-                      >
-                        <Select
-                          className={FORM.CLASS_NAME}
-                          options={[
-                            {
-                              value: "generic",
-                              label: "Requester selects approver",
-                            },
-                            { value: "role_based", label: "Specific role" },
-                          ]}
-                        />
-                      </FormField>
-
-                      {stageType === "role_based" && (
-                        <FormField
-                          control={control}
-                          name={`approvalStages.${index}.role`}
-                          label="Role"
-                          labelProps={FORM.LABEL_PROPS}
-                        >
-                          <Select
-                            className={FORM.CLASS_NAME}
-                            placeholder="Select a role"
-                            options={APPROVAL_ROLES.map((r) => ({
-                              value: r,
-                              label: r,
-                            }))}
-                          />
-                        </FormField>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {errors.approvalStages?.root && (
-              <span className="text-error block text-sm">
-                {errors.approvalStages.root.message}
-              </span>
-            )}
-            {/* When stages array itself is too short, message lands on the array */}
-            {errors.approvalStages &&
-              !errors.approvalStages.root &&
-              typeof errors.approvalStages.message === "string" && (
-                <span className="text-error block text-sm">
-                  {errors.approvalStages.message}
-                </span>
-              )}
-          </div>
+          <p className="text-body-xs text-fade-2 font-medium">
+            Approval routing is configured separately under{" "}
+            <span className="font-semibold">Settings → Approval Rules</span>,
+            based on Category × System × Risk Level.
+          </p>
         </form>
       </Modal>
     </div>

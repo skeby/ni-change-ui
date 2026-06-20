@@ -207,9 +207,19 @@ export const MyChanges: React.FC = () => {
       key: "status",
       width: 150,
       render: (_: unknown, record: ChangeRequest) => (
-        <Tag value={record.isQueried ? "Queried" : record.status} format={false}>
-          {record.isQueried ? "Queried" : record.status}
-        </Tag>
+        <div className="flex flex-wrap items-center gap-1">
+          <Tag
+            value={record.isQueried ? "Queried" : record.status}
+            format={false}
+          >
+            {record.isQueried ? "Queried" : record.status}
+          </Tag>
+          {record.isEmergency && (
+            <Tag color="#ef4444" format={false}>
+              Emergency
+            </Tag>
+          )}
+        </div>
       ),
     },
     {
