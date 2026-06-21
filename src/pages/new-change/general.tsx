@@ -6,10 +6,14 @@ import { z } from "zod";
 import { Input, Select, DatePicker, Switch, message } from "antd";
 import { Siren } from "lucide-react";
 import dayjs from "dayjs";
-import { useAppSelector } from "../../state/store";
+import { useAppSelector, useAppDispatch } from "../../state/store";
 import FormField from "../../components/ui/form-field";
 import SupportingDocumentsUploader from "../../components/ui/supporting-documents-uploader";
 import { FORM } from "../../static";
+import {
+  saveChangeDraft,
+  type ChangeRequest,
+} from "../../state/slices/changes-slice";
 import { useWizard, getCategoryKind } from "./new-change-wizard";
 import {
   CATEGORY_KIND_LABELS,
@@ -41,6 +45,7 @@ const aiLicenseTemplate = (categoryName: string) => ({
 
 const GeneralStep: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { formData, updateFormData, draftId } = useWizard();
   const { currentUserId, users, activeRoles } = useAppSelector(
     (state) => state.auth,
@@ -119,19 +124,57 @@ const GeneralStep: React.FC = () => {
       }
     }
 
-    updateFormData({
-      title: values.title,
-      description: values.description,
-      systemAffected: systemRequired ? values.systemAffected || "" : "",
-      category: values.category,
-      requestedTimeline: values.requestedTimeline,
-    });
+    const systemAffected = systemRequired ? values.systemAffected || "" : "";
+    const nextStep = watchedKind === "ai_build" ? "ai-request" : "risk";
 
-    if (watchedKind === "ai_build") {
-      navigate(`/self/changes/new/ai-request?draftId=${draftId}`);
+    // First-step completion is what creates the draft — nothing is persisted
+    // until the user gets here, so abandoned "new request" visits leave no
+    // empty drafts behind.
+    let activeDraftId = draftId;
+    if (!activeDraftId) {
+      activeDraftId = `DRAFT-${Date.now()}`;
+      const now = new Date().toISOString();
+      const newDraft: ChangeRequest = {
+        id: activeDraftId,
+        title: values.title,
+        description: values.description,
+        systemAffected,
+        category: values.category,
+        businessJustification: formData.businessJustification || "",
+        requestedTimeline: values.requestedTimeline,
+        submitterId: currentUser?.id || "",
+        submitterName: currentUser?.name || "",
+        submitterDepartment: currentUser?.department || "",
+        status: "Draft",
+        riskLevel: "",
+        riskJustification: "",
+        approvals: [],
+        supportingDocuments: formData.supportingDocuments,
+        isEmergency: formData.isEmergency,
+        emergencyActionTaken: formData.emergencyActionTaken,
+        emergencyActionTakenAt: formData.emergencyActionTakenAt,
+        testPlan: "",
+        testSteps: [],
+        evidence: [],
+        timeline: [],
+        comments: [],
+        isQueried: false,
+        createdAt: now,
+        updatedAt: now,
+        draftStep: nextStep,
+      };
+      dispatch(saveChangeDraft(newDraft));
     } else {
-      navigate(`/self/changes/new/risk?draftId=${draftId}`);
+      updateFormData({
+        title: values.title,
+        description: values.description,
+        systemAffected,
+        category: values.category,
+        requestedTimeline: values.requestedTimeline,
+      });
     }
+
+    navigate(`/self/changes/new/${nextStep}?draftId=${activeDraftId}`);
   };
 
   return (

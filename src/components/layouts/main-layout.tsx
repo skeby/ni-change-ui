@@ -34,7 +34,7 @@ const MainLayout = () => {
           <Header />
         </div>
         <main className="custom-scrollbar flex-1 overflow-y-auto p-8 print:h-auto print:overflow-visible print:p-0">
-          <div className="animate-fade-in mx-auto space-y-8 print:max-w-none print:space-y-0">
+          <div className="animate-fade-in flex min-h-full flex-col print:max-w-none">
             <Outlet />
           </div>
         </main>

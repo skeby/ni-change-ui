@@ -86,6 +86,18 @@ const Header: React.FC = () => {
         title: "All Changes",
         subtitle: "Manage all change requests across the organization.",
       };
+    if (path === "/change-journey")
+      return {
+        title: "Change Journey",
+        subtitle:
+          "Track every request across the organization as it moves through the lifecycle.",
+      };
+    if (path === "/graph")
+      return {
+        title: "Change Graph",
+        subtitle:
+          "See how request kinds connect to the systems they touch across the organization.",
+      };
     if (path.startsWith("/changes/"))
       return {
         title: "Change Request Details",

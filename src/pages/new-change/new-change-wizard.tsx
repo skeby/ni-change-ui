@@ -8,7 +8,6 @@ import type {
   AIRequestData,
   RollbackPlan,
   ResolvedApprovalStage,
-  ChangeRequest,
   EvidenceFile,
 } from "../../state/slices/changes-slice";
 import { saveChangeDraft } from "../../state/slices/changes-slice";
@@ -136,47 +135,20 @@ const NewChangeWizard: React.FC = () => {
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
 
   const { changes } = useAppSelector((state) => state.changes);
-  const { currentUserId, users } = useAppSelector((state) => state.auth);
-  const currentUser = users.find((u) => u.id === currentUserId) || users[0];
 
   const draftId = searchParams.get("draftId") || "";
   const currentDraft = changes.find((c) => c.id === draftId);
 
   const [formData, setFormData] = useState<WizardFormData>(INITIAL_FORM_DATA);
 
-  // Initialize a new draft if no draftId exists
+  // The draft is created only when the user completes the first step (see
+  // general.tsx). Until then, keep the user on the General step so they can't
+  // land on a later step without a draft.
   useEffect(() => {
-    if (!draftId) {
-      const newDraftId = `DRAFT-${Date.now()}`;
-      const newDraft: ChangeRequest = {
-        id: newDraftId,
-        title: "",
-        description: "",
-        systemAffected: "",
-        category: "",
-        businessJustification: "",
-        requestedTimeline: "",
-        submitterId: currentUser.id,
-        submitterName: currentUser.name,
-        submitterDepartment: currentUser.department,
-        status: "Draft",
-        riskLevel: "",
-        riskJustification: "",
-        approvals: [],
-        testPlan: "",
-        testSteps: [],
-        evidence: [],
-        timeline: [],
-        comments: [],
-        isQueried: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        draftStep: "general",
-      };
-      dispatch(saveChangeDraft(newDraft));
-      navigate(`/self/changes/new/general?draftId=${newDraftId}`, { replace: true });
+    if (!draftId && !location.pathname.endsWith("/general")) {
+      navigate("/self/changes/new/general", { replace: true });
     }
-  }, [draftId, dispatch, navigate, currentUser]);
+  }, [draftId, location.pathname, navigate]);
 
   // Sync formData context with currentDraft from Redux store when loaded
   useEffect(() => {
@@ -322,14 +294,6 @@ const NewChangeWizard: React.FC = () => {
     categoryKind,
     isSelfCertify,
   };
-
-  if (!draftId) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
-      </div>
-    );
-  }
 
   const isLastStep = currentStepIdx === steps.length - 1;
   const submitLabel = isSelfCertify

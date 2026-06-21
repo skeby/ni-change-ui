@@ -67,6 +67,14 @@ const router = createBrowserRouter([
             lazy: lazyRoute(() => import("./pages/self-dashboard")),
           },
           {
+            path: "change-journey",
+            lazy: lazyRoute(() => import("./pages/overview/change-journey")),
+          },
+          {
+            path: "graph",
+            lazy: lazyRoute(() => import("./pages/overview/change-graph")),
+          },
+          {
             path: "self/changes",
             lazy: lazyRoute(() => import("./pages/my-changes")),
           },
