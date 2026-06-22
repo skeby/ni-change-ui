@@ -4,20 +4,15 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input, Select } from "antd";
-import { ShieldAlert } from "lucide-react";
 import FormField from "../../components/ui/form-field";
 import { FORM } from "../../static";
 import { useWizard } from "./new-change-wizard";
 import type { RiskLevel } from "../../state/slices/changes-slice";
 import { useAppSelector } from "../../state/store";
-import { Utils } from "../../utils";
-import chroma from "chroma-js";
 
 const riskSchema = z.object({
   riskLevel: z.string().min(1, "Select a risk level"),
-  riskJustification: z
-    .string()
-    .min(1, "Explain why you chose this risk level"),
+  riskJustification: z.string().min(1, "Explain why you chose this risk level"),
   businessJustification: z
     .string()
     .min(1, "Business justification is required"),
@@ -42,11 +37,6 @@ const RiskStep: React.FC = () => {
       businessJustification: formData.businessJustification,
     },
   });
-
-  const currentRisk = watch("riskLevel") as RiskLevel;
-  const riskColor = currentRisk
-    ? Utils.resolveRiskColor(riskLevels, currentRisk)
-    : "#6b7280";
 
   const onSubmit = (values: RiskValues) => {
     updateFormData({
@@ -92,26 +82,6 @@ const RiskStep: React.FC = () => {
             }))}
           />
         </FormField>
-
-        {currentRisk && (
-          <div
-            className="card border-border flex items-center gap-3 border border-l-4 p-4"
-            style={{ borderLeftColor: riskColor }}
-          >
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-              style={{
-                backgroundColor: chroma(riskColor).alpha(0.1).css(),
-                color: riskColor,
-              }}
-            >
-              <ShieldAlert className="h-5 w-5" />
-            </div>
-            <span className="text-body-md font-bold" style={{ color: riskColor }}>
-              {currentRisk} Risk
-            </span>
-          </div>
-        )}
       </div>
 
       <FormField

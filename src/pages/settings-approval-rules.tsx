@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { Button, Modal, Select, Popconfirm, type TableProps } from "antd";
+import {
+  Button,
+  Modal,
+  Select,
+  Popconfirm,
+  message,
+  type TableProps,
+} from "antd";
 import { DataTable } from "../components/ui/data-table";
 import { useAppSelector, useAppDispatch } from "../state/store";
 import {
@@ -117,6 +124,20 @@ export const SettingsApprovalRules: React.FC = () => {
   };
 
   const onSubmit: SubmitHandler<RuleFormValues> = (data) => {
+    const isDuplicate = approvalRules.some(
+      (r) =>
+        r.id !== editingId &&
+        r.category === data.category &&
+        r.system === data.system &&
+        r.riskLevel === data.riskLevel,
+    );
+    if (isDuplicate) {
+      message.error(
+        "An approval rule for this Category × System × Risk Level combination already exists.",
+      );
+      return;
+    }
+
     const updates = {
       category: data.category,
       system: data.system,

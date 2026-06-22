@@ -98,6 +98,12 @@ const Header: React.FC = () => {
         subtitle:
           "See how request kinds connect to the systems they touch across the organization.",
       };
+    if (path === "/map")
+      return {
+        title: "Change Map",
+        subtitle:
+          "See where change requests are coming from across the organization.",
+      };
     if (path.startsWith("/changes/"))
       return {
         title: "Change Request Details",

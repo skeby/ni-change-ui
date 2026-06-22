@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Input, Select } from "antd";
 import { RotateCcw } from "lucide-react";
 import FormField from "../../components/ui/form-field";
+import DurationInput from "../../components/ui/duration-input";
 import { FORM } from "../../static";
 import { useWizard } from "./new-change-wizard";
 import { useAppSelector } from "../../state/store";
@@ -113,10 +114,7 @@ const RollbackStep: React.FC = () => {
             label="Estimated Rollback Time"
             required
           >
-            <Input
-              placeholder="e.g. 30 minutes, 2 hours"
-              className={FORM.CLASS_NAME}
-            />
+            <DurationInput placeholder="e.g. 30" className={FORM.CLASS_NAME} />
           </FormField>
 
           {/* Dependencies / Risks */}

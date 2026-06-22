@@ -38,9 +38,8 @@ const KIND_ORDER: ChangeCategoryKind[] = [
 ];
 
 const aiLicenseTemplate = (categoryName: string) => ({
-  title: `AI Tool License Request — ${categoryName}`,
-  description:
-    "Requesting a license for an existing AI tool. Please specify the tool name, the intended business use, the number of seats/users required, and the expected start date.",
+  title: categoryName,
+  description: categoryName,
 });
 
 const GeneralStep: React.FC = () => {
@@ -80,7 +79,10 @@ const GeneralStep: React.FC = () => {
 
   const watchedCategory = watch("category");
   const watchedKind = getCategoryKind(watchedCategory || "", categories);
-  const systemRequired = watchedKind !== "new_system";
+  // Brand-new systems and AI license requests don't have an existing system
+  // to point at.
+  const systemRequired =
+    watchedKind !== "new_system" && watchedKind !== "ai_license";
 
   // Auto-fill submitter info (captured silently — not shown on the form)
   useEffect(() => {
@@ -93,7 +95,6 @@ const GeneralStep: React.FC = () => {
   }, [currentUser]);
 
   const handleCategoryChange = (value: string) => {
-    setValue("category", value);
     const kind = getCategoryKind(value, categories);
     // Auto-fill title/description for AI license requests, but never clobber
     // anything the user has already typed.
@@ -102,8 +103,9 @@ const GeneralStep: React.FC = () => {
       setValue("title", tmpl.title);
       setValue("description", tmpl.description);
     }
-    // New-system requests have no "system affected" — clear any stale value.
-    if (kind === "new_system") {
+    // New-system and AI-license requests have no "system affected" — clear
+    // any stale value.
+    if (kind === "new_system" || kind === "ai_license") {
       setValue("systemAffected", "");
     }
   };
@@ -199,16 +201,20 @@ const GeneralStep: React.FC = () => {
           label="What type of request is this?"
           required
           rootClassName="col-span-full"
-        >
-          <Select
-            showSearch={{ optionFilterProp: "label" }}
-            value={watchedCategory || undefined}
-            onChange={handleCategoryChange}
-            placeholder="Select a category..."
-            className={FORM.CLASS_NAME}
-            options={groupedCategoryOptions}
-          />
-        </FormField>
+          render={({ field: { value, onChange } }) => (
+            <Select
+              showSearch={{ optionFilterProp: "label" }}
+              value={value}
+              onChange={(val) => {
+                onChange(val);
+                handleCategoryChange(val);
+              }}
+              placeholder="Select a category..."
+              className={FORM.CLASS_NAME}
+              options={groupedCategoryOptions}
+            />
+          )}
+        />
 
         {/* Title */}
         <FormField

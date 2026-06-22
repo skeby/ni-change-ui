@@ -12,8 +12,8 @@ import {
   FaServer,
   FaListAlt,
   FaSitemap,
-  FaRoute,
   FaProjectDiagram,
+  FaMapMarkedAlt,
 } from "react-icons/fa";
 import { BiSolidUser } from "react-icons/bi";
 import { Tooltip } from "antd";
@@ -60,8 +60,9 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       visible: isRole(["Admin"]),
       items: [
         { name: "Dashboard", path: "/", icon: BiSolidDashboard },
-        { name: "Change Journey", path: "/change-journey", icon: FaRoute },
+        // { name: "Change Journey", path: "/change-journey", icon: FaRoute },
         { name: "Change Graph", path: "/graph", icon: FaProjectDiagram },
+        { name: "Change Map", path: "/map", icon: FaMapMarkedAlt },
       ],
     },
     {

@@ -5,7 +5,16 @@ export interface SystemOption {
   name: string;
   description: string;
   active: boolean;
+  // External URL for seeded defaults, or a base64 data URL captured from the
+  // upload control in Settings → Systems.
+  logo?: string;
 }
+
+// Default-system logos are sourced from Google's public favicon service —
+// works for any real-world domain without needing a brand-icon library or
+// per-company licensing.
+const faviconUrl = (domain: string) =>
+  `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
 
 // Each category belongs to one of four behavioral "kinds" that drive the
 // request form flow. Admins can add multiple granular categories per kind
@@ -77,60 +86,110 @@ const initialState: SettingsState = {
       name: "NetSuite",
       description: "Financial and ERP platform",
       active: true,
+      logo: faviconUrl("netsuite.com"),
     },
     {
       id: "sys-2",
       name: "Salesforce",
       description: "CRM platform",
       active: true,
+      logo: faviconUrl("salesforce.com"),
     },
     {
       id: "sys-3",
       name: "ERP",
       description: "Enterprise Resource Planning",
       active: true,
+      logo: "/favicon-192x192.png",
     },
     {
       id: "sys-4",
       name: "HRIS",
       description: "Human Resource Information System",
       active: true,
+      logo: "/favicon-192x192.png",
     },
-    {
-      id: "sys-5",
-      name: "CRM",
-      description: "Customer Relationship Management",
-      active: true,
-    },
+    // {
+    //   id: "sys-5",
+    //   name: "CRM",
+    //   description: "Customer Relationship Management",
+    //   active: true,
+    //   logo: "/favicon-192x192.png",
+    // },
     {
       id: "sys-6",
       name: "SharePoint",
       description: "Document management and collaboration",
       active: true,
+      logo: faviconUrl("sharepoint.com"),
     },
     {
       id: "sys-7",
       name: "Power BI",
       description: "Business intelligence and reporting",
       active: true,
+      logo: faviconUrl("powerbi.microsoft.com"),
+    },
+    {
+      id: "sys-10",
+      name: "Agiloft",
+      description: "Contract lifecycle management (CLM) platform",
+      active: true,
+      logo: faviconUrl("agiloft.com"),
+    },
+    {
+      id: "sys-11",
+      name: "Travel Portal",
+      description: "Employee travel request and booking portal",
+      active: true,
+      logo: "/favicon-192x192.png",
+    },
+    {
+      id: "sys-12",
+      name: "Card Reconciliation",
+      description: "Corporate card transaction reconciliation system",
+      active: true,
+      logo: "/favicon-192x192.png",
+    },
+    {
+      id: "sys-13",
+      name: "Microsoft Dynamics 365",
+      description: "ERP and CRM business applications suite",
+      active: true,
+      logo: faviconUrl("dynamics.microsoft.com"),
+    },
+    {
+      id: "sys-14",
+      name: "NICOR Forms",
+      description: "Internal forms and intake workflow platform",
+      active: true,
+    },
+    {
+      id: "sys-15",
+      name: "DocuSign",
+      description: "Electronic signature and document execution platform",
+      active: true,
+      logo: faviconUrl("docusign.com"),
     },
     {
       id: "sys-8",
       name: "Custom Application",
       description: "Custom-built internal applications",
       active: true,
+      logo: "/favicon-192x192.png",
     },
     {
       id: "sys-9",
       name: "Other",
       description: "Other systems not listed",
       active: true,
+      logo: "/favicon-192x192.png",
     },
   ],
   categories: [
     {
       id: "cat-1",
-      name: "AI Request for License",
+      name: "Request for AI License",
       kind: "ai_license",
       active: true,
     },
@@ -221,7 +280,7 @@ const initialState: SettingsState = {
   testChecklists: [
     {
       id: "tc-1",
-      category: "AI Request for License",
+      category: "Request for AI License",
       items: [
         "Verify license terms reviewed and accepted",
         "Confirm vendor security/compliance documentation",

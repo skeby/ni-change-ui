@@ -1,34 +1,34 @@
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom"
-import AuthGuard from "./guards/auth-guard"
-import AuthRoute from "./guards/auth-route"
-import ErrorBoundary from "./components/misc/error-boundary"
-import MainLayout from "./components/layouts/main-layout"
-import RootLayout from "./components/layouts/root-layout"
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import AuthGuard from "./guards/auth-guard";
+import AuthRoute from "./guards/auth-route";
+import ErrorBoundary from "./components/misc/error-boundary";
+import MainLayout from "./components/layouts/main-layout";
+import RootLayout from "./components/layouts/root-layout";
 
 const lazyRoute = (importFn: () => Promise<any>) => async () => {
   try {
-    const module = await importFn()
+    const module = await importFn();
     const Component =
       module.default ||
       Object.entries(module).find(
-        ([key, val]) => /^[A-Z]/.test(key) && typeof val === "function"
-      )?.[1]
-    return { Component }
+        ([key, val]) => /^[A-Z]/.test(key) && typeof val === "function",
+      )?.[1];
+    return { Component };
   } catch {
     try {
-      const module = await importFn()
+      const module = await importFn();
       const Component =
         module.default ||
         Object.entries(module).find(
-          ([key, val]) => /^[A-Z]/.test(key) && typeof val === "function"
-        )?.[1]
-      return { Component }
+          ([key, val]) => /^[A-Z]/.test(key) && typeof val === "function",
+        )?.[1];
+      return { Component };
     } catch {
-      window.location.reload()
-      return { Component: () => null }
+      window.location.reload();
+      return { Component: () => null };
     }
   }
-}
+};
 
 const router = createBrowserRouter([
   {
@@ -66,13 +66,17 @@ const router = createBrowserRouter([
             path: "self/dashboard",
             lazy: lazyRoute(() => import("./pages/self-dashboard")),
           },
-          {
-            path: "change-journey",
-            lazy: lazyRoute(() => import("./pages/overview/change-journey")),
-          },
+          // {
+          //   path: "change-journey",
+          //   lazy: lazyRoute(() => import("./pages/overview/change-journey")),
+          // },
           {
             path: "graph",
             lazy: lazyRoute(() => import("./pages/overview/change-graph")),
+          },
+          {
+            path: "map",
+            lazy: lazyRoute(() => import("./pages/overview/change-map")),
           },
           {
             path: "self/changes",
@@ -81,7 +85,7 @@ const router = createBrowserRouter([
           {
             path: "self/changes/new",
             lazy: lazyRoute(
-              () => import("./pages/new-change/new-change-wizard")
+              () => import("./pages/new-change/new-change-wizard"),
             ),
             children: [
               { index: true, element: <Navigate to="general" replace /> },
@@ -163,6 +167,6 @@ const router = createBrowserRouter([
       },
     ],
   },
-])
+]);
 
-export default router
+export default router;

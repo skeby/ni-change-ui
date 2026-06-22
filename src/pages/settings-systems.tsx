@@ -13,12 +13,14 @@ import { useForm, type SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import FormField from "../components/ui/form-field"
+import LogoUploader from "../components/ui/logo-uploader"
 import { FORM } from "../static"
 
 const systemSchema = z.object({
   name: z.string().min(1, "System name is required"),
   description: z.string().min(1, "Description is required"),
   active: z.boolean(),
+  logo: z.string().optional(),
 })
 
 type SystemFormValues = z.infer<typeof systemSchema>
@@ -34,6 +36,7 @@ export const SettingsSystems: React.FC = () => {
     name: "",
     description: "",
     active: true,
+    logo: "",
   }
 
   const { handleSubmit, control, reset } = useForm<SystemFormValues>({
@@ -53,6 +56,7 @@ export const SettingsSystems: React.FC = () => {
       name: system.name,
       description: system.description,
       active: system.active,
+      logo: system.logo || "",
     })
     setIsOpen(true)
   }
@@ -75,6 +79,26 @@ export const SettingsSystems: React.FC = () => {
   }
 
   const columns: TableProps<SystemOption>["columns"] = [
+    {
+      key: "logo",
+      title: "Logo",
+      width: 64,
+      render: (_, record) => (
+        <div className="border-border bg-bg-muted flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border">
+          {record.logo ? (
+            <img
+              src={record.logo}
+              alt={record.name}
+              className="h-full w-full object-contain p-1"
+            />
+          ) : (
+            <span className="text-fade-2 text-xs font-bold">
+              {record.name.charAt(0)}
+            </span>
+          )}
+        </div>
+      ),
+    },
     {
       key: "name",
       dataIndex: "name",
@@ -187,6 +211,15 @@ export const SettingsSystems: React.FC = () => {
           </div>
 
           <div className="space-y-4">
+            <FormField
+              control={control}
+              name="logo"
+              label="Logo"
+              labelProps={FORM.LABEL_PROPS}
+            >
+              <LogoUploader />
+            </FormField>
+
             <FormField
               control={control}
               name="name"

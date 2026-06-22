@@ -28,6 +28,7 @@ import {
 } from "antd";
 import { Collapse } from "../components/ui/collapse";
 import Tag from "../components/ui/tag";
+import DurationInput from "../components/ui/duration-input";
 import { DataTable } from "../components/ui/data-table";
 import dayjs from "dayjs";
 import { cn } from "../utils/cn";
@@ -1517,10 +1518,10 @@ export const ChangeDetail: React.FC = () => {
             </div>
             <div>
               <Label>Estimated Time</Label>
-              <Input
+              <DurationInput
                 value={rollbackTime}
-                onChange={(e) => setRollbackTime(e.target.value)}
-                placeholder="e.g. 30 minutes, 2 hours"
+                onChange={setRollbackTime}
+                placeholder="e.g. 30"
                 className={FORM.CLASS_NAME}
               />
             </div>
