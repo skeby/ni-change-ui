@@ -295,19 +295,6 @@ const ReviewStep: React.FC = () => {
               value={formData.aiRequest.problemComplexity}
             />
             <SummaryField
-              label="Rule Engine"
-              value={formData.aiRequest.ruleEngine}
-            />
-            <SummaryField label="AI & ML" value={formData.aiRequest.aiMl} />
-            <SummaryField
-              label="Human / Manual"
-              value={formData.aiRequest.human}
-            />
-            <SummaryField
-              label="Statistical Modeling"
-              value={formData.aiRequest.statisticalModeling}
-            />
-            <SummaryField
               label="Staff Personal Data"
               value={formData.aiRequest.requiresStaffPersonalData}
             />

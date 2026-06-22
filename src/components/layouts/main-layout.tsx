@@ -23,6 +23,8 @@ const MainLayout = () => {
     }
   }
 
+  const isMapPage = location.pathname === "/map"
+
   return (
     <div className="bg-background-primary flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible">
       <div className="print:hidden">
@@ -33,10 +35,16 @@ const MainLayout = () => {
         <div className="print:hidden">
           <Header />
         </div>
-        <main className="custom-scrollbar flex-1 overflow-y-auto p-8 print:h-auto print:overflow-visible print:p-0">
-          <div className="animate-fade-in flex min-h-full flex-col print:max-w-none">
+        <main
+          className={`custom-scrollbar flex-1 overflow-y-auto print:h-auto print:overflow-visible print:p-0 ${isMapPage ? "p-0" : "p-8"}`}
+        >
+          {isMapPage ? (
             <Outlet />
-          </div>
+          ) : (
+            <div className="animate-fade-in flex min-h-full flex-col print:max-w-none">
+              <Outlet />
+            </div>
+          )}
         </main>
         <div id="layout-footer-portal" className="shrink-0 print:hidden" />
       </div>

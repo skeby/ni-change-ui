@@ -1127,19 +1127,6 @@ export const ChangeDetail: React.FC = () => {
                   value={change.aiRequest.problemComplexity}
                 />
                 <SummaryField
-                  label="Rule Engine"
-                  value={change.aiRequest.ruleEngine}
-                />
-                <SummaryField label="AI/ML" value={change.aiRequest.aiMl} />
-                <SummaryField
-                  label="Human Review"
-                  value={change.aiRequest.human}
-                />
-                <SummaryField
-                  label="Statistical Modeling"
-                  value={change.aiRequest.statisticalModeling}
-                />
-                <SummaryField
                   label="Requires Staff Personal Data"
                   value={change.aiRequest.requiresStaffPersonalData}
                 />

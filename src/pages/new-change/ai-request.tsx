@@ -12,10 +12,6 @@ import { useWizard } from "./new-change-wizard";
 import { useAppSelector } from "../../state/store";
 
 const aiRequestSchema = z.object({
-  ruleEngine: z.string().min(1, "Required"),
-  aiMl: z.string().min(1, "Required"),
-  human: z.string().min(1, "Required"),
-  statisticalModeling: z.string().min(1, "Required"),
   problemComplexity: z.string().min(1, "Required"),
   problemDescription: z.string().min(1, "Problem description is required"),
   currentSolution: z.string().min(1, "Current solution is required"),
@@ -34,7 +30,6 @@ const aiRequestSchema = z.object({
 
 type AIRequestValues = z.infer<typeof aiRequestSchema>;
 
-const ASSESSMENT_OPTIONS = ["Not Applicable", "Low", "Medium", "High", "Critical"];
 const COMPLEXITY_OPTIONS = ["Simple", "Moderate", "Complex", "Highly Complex"];
 const YES_NO_OPTIONS = [
   { label: "Yes", value: "Yes" },
@@ -212,51 +207,6 @@ const AIRequestStep: React.FC = () => {
 
       {/* Approach assessment */}
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-        <FormField name="ruleEngine" control={control} label="Rule Engine" required>
-          <Select
-            value={watch("ruleEngine") || undefined}
-            onChange={(v) => setValue("ruleEngine", v)}
-            placeholder="Select..."
-            className={FORM.CLASS_NAME}
-            options={ASSESSMENT_OPTIONS.map((o) => ({ label: o, value: o }))}
-          />
-        </FormField>
-
-        <FormField name="aiMl" control={control} label="AI & ML" required>
-          <Select
-            value={watch("aiMl") || undefined}
-            onChange={(v) => setValue("aiMl", v)}
-            placeholder="Select..."
-            className={FORM.CLASS_NAME}
-            options={ASSESSMENT_OPTIONS.map((o) => ({ label: o, value: o }))}
-          />
-        </FormField>
-
-        <FormField name="human" control={control} label="Human / Manual" required>
-          <Select
-            value={watch("human") || undefined}
-            onChange={(v) => setValue("human", v)}
-            placeholder="Select..."
-            className={FORM.CLASS_NAME}
-            options={ASSESSMENT_OPTIONS.map((o) => ({ label: o, value: o }))}
-          />
-        </FormField>
-
-        <FormField
-          name="statisticalModeling"
-          control={control}
-          label="Statistical Modeling"
-          required
-        >
-          <Select
-            value={watch("statisticalModeling") || undefined}
-            onChange={(v) => setValue("statisticalModeling", v)}
-            placeholder="Select..."
-            className={FORM.CLASS_NAME}
-            options={ASSESSMENT_OPTIONS.map((o) => ({ label: o, value: o }))}
-          />
-        </FormField>
-
         <FormField
           name="problemComplexity"
           control={control}

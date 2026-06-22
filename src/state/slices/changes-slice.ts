@@ -99,10 +99,6 @@ export interface ResolvedApprovalStage {
 }
 
 export interface AIRequestData {
-  ruleEngine: string
-  aiMl: string
-  human: string
-  statisticalModeling: string
   problemComplexity: string
   problemDescription: string
   currentSolution: string

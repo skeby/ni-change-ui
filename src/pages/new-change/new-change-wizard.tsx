@@ -76,10 +76,6 @@ export const getCategoryKind = (
   categories.find((c) => c.name === category)?.kind;
 
 const EMPTY_AI_REQUEST: AIRequestData = {
-  ruleEngine: "",
-  aiMl: "",
-  human: "",
-  statisticalModeling: "",
   problemComplexity: "",
   problemDescription: "",
   currentSolution: "",
