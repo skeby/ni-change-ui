@@ -204,7 +204,7 @@ const GeneralStep: React.FC = () => {
           render={({ field: { value, onChange } }) => (
             <Select
               showSearch={{ optionFilterProp: "label" }}
-              value={value}
+              value={value || undefined}
               onChange={(val) => {
                 onChange(val);
                 handleCategoryChange(val);
