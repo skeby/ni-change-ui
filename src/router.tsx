@@ -60,11 +60,11 @@ const router = createBrowserRouter([
         children: [
           {
             index: true,
-            lazy: lazyRoute(() => import("./pages/dashboard")),
+            lazy: lazyRoute(() => import("./pages/self-front-desk")),
           },
           {
-            path: "self",
-            lazy: lazyRoute(() => import("./pages/self-front-desk")),
+            path: "dashboard",
+            lazy: lazyRoute(() => import("./pages/dashboard")),
           },
           {
             path: "self/dashboard",

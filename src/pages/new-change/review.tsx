@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Select, Modal, message } from "antd";
+import { Input, Modal, message } from "antd";
 import { ShieldAlert, CheckCircle, Siren } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "../../state/store";
 import { addChange, deleteChange } from "../../state/slices/changes-slice";
@@ -12,7 +12,6 @@ import { useWizard } from "./new-change-wizard";
 import { cn } from "../../utils/cn";
 import { Utils } from "../../utils";
 import Tag from "../../components/ui/tag";
-import type { FieldError } from "react-hook-form";
 
 const ReviewStep: React.FC = () => {
   const navigate = useNavigate();
@@ -34,15 +33,6 @@ const ReviewStep: React.FC = () => {
       Math.min(...riskLevels.map((r) => r.severity));
 
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
-  const [approverSelections, setApproverSelections] = useState<
-    Record<string, string>
-  >({});
-  const [submitAttempted, setSubmitAttempted] = useState(false);
-
-  // Approver candidates: all users with Approver role except the current user
-  const approverOptions = users
-    .filter((u) => u.id !== currentUserId && u.baseRoles.includes("Approver"))
-    .map((u) => ({ label: `${u.name} (${u.department})`, value: u.id }));
 
   // Approval stages resolved from the Risk × Category × System rule matrix.
   // Emergency changes record action already taken, so they bypass approval.
@@ -65,6 +55,29 @@ const ReviewStep: React.FC = () => {
     ],
   );
 
+  // Approvers are assigned by the system, not chosen by the requester: each
+  // stage gets the first eligible, not-yet-used person holding the required
+  // role (or, for generic stages, the Approver role), excluding the
+  // requester themself. Falls back to reusing a person if no alternate
+  // exists for a later stage.
+  const resolvedApprovers = useMemo(() => {
+    const result: Record<string, (typeof users)[number] | undefined> = {};
+    if (isEmergency) return result;
+    const usedIds = new Set<string>();
+    for (const stage of configuredStages) {
+      const eligible = users.filter((u) => {
+        if (u.id === currentUserId) return false;
+        return stage.type === "role_based"
+          ? stage.role && u.baseRoles.includes(stage.role)
+          : u.baseRoles.includes("Approver");
+      });
+      const chosen = eligible.find((u) => !usedIds.has(u.id)) ?? eligible[0];
+      if (chosen) usedIds.add(chosen.id);
+      result[stage.id] = chosen;
+    }
+    return result;
+  }, [configuredStages, users, currentUserId, isEmergency]);
+
   const routingExplanation = useMemo(() => {
     if (isEmergency) {
       return {
@@ -85,7 +98,7 @@ const ReviewStep: React.FC = () => {
         icon: (
           <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
         ),
-        text: "This is a low risk change. It will route directly to the approver you select below.",
+        text: "This is a low risk change. It will route directly to the approver assigned below.",
       };
     }
     return {
@@ -96,18 +109,18 @@ const ReviewStep: React.FC = () => {
 
   const handleTriggerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitAttempted(false);
     setIsSubmitModalOpen(true);
   };
 
   const handleConfirmSubmit = () => {
     if (!isEmergency) {
       const missingApprover = configuredStages.some(
-        (s) => !approverSelections[s.id],
+        (s) => !resolvedApprovers[s.id],
       );
       if (missingApprover) {
-        setSubmitAttempted(true);
-        message.error("Select an approver for each stage.");
+        message.error(
+          "No eligible approver is configured for one or more stages. Contact an admin to assign the missing role.",
+        );
         return;
       }
     }
@@ -122,7 +135,7 @@ const ReviewStep: React.FC = () => {
       id: s.id,
       type: s.type,
       role: s.type === "role_based" ? s.role : undefined,
-      approverId: approverSelections[s.id],
+      approverId: resolvedApprovers[s.id]?.id,
     }));
 
     const changeRequest: ChangeRequest = {
@@ -474,10 +487,7 @@ const ReviewStep: React.FC = () => {
             <div className="relative ml-3 space-y-5 pl-6">
               {configuredStages.map((stage, idx) => {
                 const isLast = idx === configuredStages.length - 1;
-                const fieldError: FieldError | undefined =
-                  submitAttempted && !approverSelections[stage.id]
-                    ? { type: "required", message: "Select an approver" }
-                    : undefined;
+                const approver = resolvedApprovers[stage.id];
 
                 return (
                   <div key={stage.id} className="relative">
@@ -488,53 +498,24 @@ const ReviewStep: React.FC = () => {
                       <span className="bg-primary h-1.5 w-1.5 rounded-full" />
                     </span>
 
-                    {stage.type === "role_based" ? (
-                      <FormFieldShim
-                        label={`Stage ${idx + 1}: ${stage.role}`}
-                        error={fieldError}
-                      >
-                        <Select
-                          value={approverSelections[stage.id] || undefined}
-                          onChange={(value) =>
-                            setApproverSelections((prev) => ({
-                              ...prev,
-                              [stage.id]: value,
-                            }))
-                          }
-                          placeholder="Select an approver..."
-                          className="h-11! w-full"
-                          options={users
-                            .filter(
-                              (u) =>
-                                stage.role && u.baseRoles.includes(stage.role),
-                            )
-                            .map((u) => ({
-                              label: `${u.name} (${u.department})`,
-                              value: u.id,
-                            }))}
-                          status={fieldError ? "error" : undefined}
-                        />
-                      </FormFieldShim>
-                    ) : (
-                      <FormFieldShim
-                        label={`Stage ${idx + 1}: Requester Selects Approver`}
-                        error={fieldError}
-                      >
-                        <Select
-                          value={approverSelections[stage.id] || undefined}
-                          onChange={(value) =>
-                            setApproverSelections((prev) => ({
-                              ...prev,
-                              [stage.id]: value,
-                            }))
-                          }
-                          placeholder="Select an approver..."
-                          className="h-11! w-full"
-                          options={approverOptions}
-                          status={fieldError ? "error" : undefined}
-                        />
-                      </FormFieldShim>
-                    )}
+                    <FormFieldShim
+                      label={
+                        stage.type === "role_based"
+                          ? `Stage ${idx + 1}: ${stage.role}`
+                          : `Stage ${idx + 1}: Approver`
+                      }
+                    >
+                      <Input
+                        readOnly
+                        value={
+                          approver
+                            ? `${approver.name} (${approver.department})`
+                            : "No eligible approver configured"
+                        }
+                        status={approver ? undefined : "error"}
+                        className="h-11! w-full cursor-default!"
+                      />
+                    </FormFieldShim>
                   </div>
                 );
               })}
@@ -550,15 +531,13 @@ const ReviewStep: React.FC = () => {
 
 const FormFieldShim: React.FC<{
   label: string;
-  error?: FieldError;
   children: React.ReactNode;
-}> = ({ label, error, children }) => (
+}> = ({ label, children }) => (
   <div className="mb-0">
     <span className="text-fade-2 mb-1 block text-[11px] font-bold tracking-wider uppercase">
       {label}
     </span>
     {children}
-    {error && <span className="text-error mt-1 block text-sm">{error.message}</span>}
   </div>
 );
 

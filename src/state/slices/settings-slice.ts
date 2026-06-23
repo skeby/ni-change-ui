@@ -32,6 +32,15 @@ export const CATEGORY_KIND_LABELS: Record<ChangeCategoryKind, string> = {
   new_system: "New Software / System",
 };
 
+// Canonical display order for category kinds — anywhere categories are
+// grouped by kind (category Selects across the app) should follow this order.
+export const CATEGORY_KIND_ORDER: ChangeCategoryKind[] = [
+  "ai_license",
+  "ai_build",
+  "update_existing",
+  "new_system",
+];
+
 export interface CategoryOption {
   id: string;
   name: string;

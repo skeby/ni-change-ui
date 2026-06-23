@@ -2,10 +2,15 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import chroma from 'chroma-js';
 import { colorMap } from '../static';
+import {
+  CATEGORY_KIND_LABELS,
+  CATEGORY_KIND_ORDER,
+} from '../state/slices/settings-slice';
 import type {
   RiskLevelConfig,
   ApprovalRule,
   ApprovalStage,
+  CategoryOption,
 } from '../state/slices/settings-slice';
 
 const RISK_COLOR_SCALE = chroma
@@ -69,6 +74,19 @@ export class Utils {
       return parseFloat(formatted) + "K";
     }
     return num.toString();
+  }
+
+  // Groups active categories by their behavioral kind for use as antd Select
+  // `options` (each group renders as an OptGroup). Kinds with no active
+  // categories are omitted.
+  static groupCategoriesByKind(categories: CategoryOption[]) {
+    return CATEGORY_KIND_ORDER.map((kind) => ({
+      label: CATEGORY_KIND_LABELS[kind],
+      title: CATEGORY_KIND_LABELS[kind],
+      options: categories
+        .filter((c) => c.active && c.kind === kind)
+        .map((c) => ({ label: c.name, value: c.name })),
+    })).filter((g) => g.options.length > 0);
   }
 
   static generateChangeId(): string {

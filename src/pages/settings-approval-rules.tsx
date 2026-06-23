@@ -62,7 +62,7 @@ export const SettingsApprovalRules: React.FC = () => {
 
   const categoryOptions = [
     { label: "Any category", value: "Any" },
-    ...categories.map((c) => ({ label: c.name, value: c.name })),
+    ...Utils.groupCategoriesByKind(categories),
   ];
   const systemOptions = [
     { label: "Any system", value: "Any" },

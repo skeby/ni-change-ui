@@ -258,7 +258,7 @@ const AIRequestStep: React.FC = () => {
         <FormField
           name="requiresStaffPersonalData"
           control={control}
-          label="Requires staff personal data?"
+          label="Does it require staff personal data?"
           required
         >
           <Select
@@ -273,7 +273,7 @@ const AIRequestStep: React.FC = () => {
         <FormField
           name="requiresSensitiveData"
           control={control}
-          label="Requires company sensitive data?"
+          label="Does it require company sensitive data?"
           required
         >
           <Select
@@ -343,6 +343,9 @@ const AIRequestStep: React.FC = () => {
             onChange={(v) => setValue("llmChoices", v)}
             placeholder="Select one or more..."
             className={FORM.CLASS_NAME}
+            classNames={{
+              item: "h-10! items-center! rounded-lg!",
+            }}
             options={LLM_OPTIONS}
           />
         </FormField>
@@ -360,6 +363,9 @@ const AIRequestStep: React.FC = () => {
             onChange={(v) => setValue("integratesWithSystems", v)}
             placeholder="Select any systems it needs to integrate with (optional)..."
             className={FORM.CLASS_NAME}
+            classNames={{
+              item: "h-10! items-center! rounded-lg!",
+            }}
             options={systemOptions}
           />
         </FormField>

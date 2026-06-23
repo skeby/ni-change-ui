@@ -15,10 +15,7 @@ import {
   type ChangeRequest,
 } from "../../state/slices/changes-slice";
 import { useWizard, getCategoryKind } from "./new-change-wizard";
-import {
-  CATEGORY_KIND_LABELS,
-  type ChangeCategoryKind,
-} from "../../state/slices/settings-slice";
+import { Utils } from "../../utils";
 
 const generalSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -29,13 +26,6 @@ const generalSchema = z.object({
 });
 
 type GeneralValues = z.infer<typeof generalSchema>;
-
-const KIND_ORDER: ChangeCategoryKind[] = [
-  "ai_license",
-  "ai_build",
-  "update_existing",
-  "new_system",
-];
 
 const aiLicenseTemplate = (categoryName: string) => ({
   title: categoryName,
@@ -59,13 +49,7 @@ const GeneralStep: React.FC = () => {
     .map((s) => ({ label: s.name, value: s.name }));
 
   // Categories grouped by behavioral kind
-  const groupedCategoryOptions = KIND_ORDER.map((kind) => ({
-    label: CATEGORY_KIND_LABELS[kind],
-    title: CATEGORY_KIND_LABELS[kind],
-    options: categories
-      .filter((c) => c.active && c.kind === kind)
-      .map((c) => ({ label: c.name, value: c.name })),
-  })).filter((g) => g.options.length > 0);
+  const groupedCategoryOptions = Utils.groupCategoriesByKind(categories);
 
   // Front Desk (the /self landing page) links here with the category/title/
   // description/system already worked out from its guided flow — prefer
@@ -84,10 +68,9 @@ const GeneralStep: React.FC = () => {
 
   const watchedCategory = watch("category");
   const watchedKind = getCategoryKind(watchedCategory || "", categories);
-  // Brand-new systems and AI license requests don't have an existing system
-  // to point at.
-  const systemRequired =
-    watchedKind !== "new_system" && watchedKind !== "ai_license";
+  // Only changes to an existing system have one to point at — AI licenses,
+  // AI builds, and brand-new systems all skip this field.
+  const systemRequired = watchedKind === "update_existing";
 
   // Auto-fill submitter info (captured silently — not shown on the form)
   useEffect(() => {
@@ -108,9 +91,9 @@ const GeneralStep: React.FC = () => {
       setValue("title", tmpl.title);
       setValue("description", tmpl.description);
     }
-    // New-system and AI-license requests have no "system affected" — clear
-    // any stale value.
-    if (kind === "new_system" || kind === "ai_license") {
+    // Only "Update Existing System" requests carry a system affected — clear
+    // any stale value for every other kind.
+    if (kind !== "update_existing") {
       setValue("systemAffected", "");
     }
   };
@@ -252,7 +235,7 @@ const GeneralStep: React.FC = () => {
           />
         </FormField>
 
-        {/* System Affected — hidden for brand-new systems */}
+        {/* System Affected — only relevant for changes to an existing system */}
         {systemRequired && (
           <FormField
             name="systemAffected"

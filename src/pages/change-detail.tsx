@@ -943,9 +943,7 @@ export const ChangeDetail: React.FC = () => {
                 onChange={(value) => setEditCategory(value)}
                 placeholder="Select category..."
                 className={FORM.CLASS_NAME}
-                options={settings.categories
-                  .filter((c) => c.active)
-                  .map((c) => ({ label: c.name, value: c.name }))}
+                options={Utils.groupCategoriesByKind(settings.categories)}
               />
             </div>
             <div className="sm:col-span-2">
@@ -1095,9 +1093,11 @@ export const ChangeDetail: React.FC = () => {
                 Emergency Action Taken
                 {change.emergencyActionTakenAt && (
                   <span className="text-fade ml-2 normal-case">
-                    ({dayjs(change.emergencyActionTakenAt).format(
+                    (
+                    {dayjs(change.emergencyActionTakenAt).format(
                       "MMM D, YYYY h:mm A",
-                    )})
+                    )}
+                    )
                   </span>
                 )}
               </span>

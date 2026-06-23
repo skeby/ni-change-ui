@@ -60,7 +60,7 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       title: "Overview",
       visible: isRole(["Admin"]),
       items: [
-        { name: "Dashboard", path: "/", icon: BiSolidDashboard },
+        { name: "Dashboard", path: "/dashboard", icon: BiSolidDashboard },
         // { name: "Change Journey", path: "/change-journey", icon: FaRoute },
         { name: "Change Graph", path: "/graph", icon: FaProjectDiagram },
         { name: "Change Map", path: "/map", icon: FaMapMarkedAlt },
@@ -72,7 +72,7 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       items: [
         {
           name: "My Frontdesk",
-          path: "/self",
+          path: "/",
           icon: FaConciergeBell,
         },
         {
@@ -181,8 +181,8 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
                   <div className="space-y-1">
                     {group.items.map((item) => {
                       const isActive =
-                        item.path === "/" || item.path === "/self"
-                          ? location.pathname === item.path
+                        item.path === "/"
+                          ? location.pathname === "/"
                           : location.pathname.startsWith(item.path);
                       const Icon = item.icon;
 

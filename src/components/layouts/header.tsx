@@ -48,13 +48,13 @@ const Header: React.FC = () => {
     const path = location.pathname;
     if (path === "/")
       return {
-        title: "Dashboard Overview",
-        subtitle: `Welcome back, ${currentUser.name}. Here's what's happening today.`,
-      };
-    if (path === "/self")
-      return {
         title: "Front Desk",
         subtitle: "Your starting point for getting things done.",
+      };
+    if (path === "/dashboard")
+      return {
+        title: "Dashboard Overview",
+        subtitle: `Welcome back, ${currentUser.name}. Here's what's happening today.`,
       };
     if (path === "/self/dashboard")
       return {

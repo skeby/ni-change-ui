@@ -5,22 +5,12 @@ import SideBar from "./side-bar"
 import Header from "./header"
 
 const MainLayout = () => {
-  const { currentUserId, activeRoles } = useAppSelector((state) => state.auth)
+  const { currentUserId } = useAppSelector((state) => state.auth)
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
 
   if (!currentUserId) {
     return <Navigate to="/login" replace />
-  }
-
-  const isRole = (roles: string[]) => {
-    return activeRoles.some((role) => roles.includes(role))
-  }
-
-  if (location.pathname === "/") {
-    if (!isRole(["Admin"])) {
-      return <Navigate to="/self" replace />
-    }
   }
 
   const isMapPage = location.pathname === "/map"
