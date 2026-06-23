@@ -440,7 +440,7 @@ const SelfFrontDesk: React.FC = () => {
         </div>
 
         {/* ── hero content ── */}
-        <div className="relative z-10 mx-auto flex w-full max-w-[980px] flex-1 flex-col px-6 pt-7 pb-3 sm:px-[24px] sm:pt-7 sm:pb-3">
+        <div className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-1 flex-col px-8 pt-7 pb-3 sm:px-12 sm:pt-7 sm:pb-3">
           <div className="mb-3 flex items-center justify-between gap-3">
             <span className="bg-bg border-border text-primary-alpha inline-flex self-start items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm">
               <span className="bg-primary animate-fd-beat h-3.5 w-3.5 rounded-full" />
@@ -535,7 +535,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "license" && (
-              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
+              <div className="animate-fd-rise flex flex-wrap gap-3 sm:ml-[46px]">
                 {LICENSE_TOOLS.map(([tool, tag]) => (
                   <Chip key={tool} onClick={() => chooseLicense(tool)}>
                     {tool}
@@ -548,7 +548,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "register" && (
-              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
+              <div className="animate-fd-rise flex flex-wrap gap-3 sm:ml-[46px]">
                 {BUILD_TYPES.map((type) => (
                   <Chip key={type} onClick={() => chooseBuild(type)}>
                     {type}
@@ -558,7 +558,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "change" && (
-              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
+              <div className="animate-fd-rise flex flex-wrap gap-3 sm:ml-[46px]">
                 {activeSystems.map((s) => (
                   <Chip
                     key={s.id}
@@ -572,7 +572,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "changeType" && (
-              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
+              <div className="animate-fd-rise flex flex-wrap gap-3 sm:ml-[46px]">
                 {CHANGE_TYPES.map((type) => (
                   <Chip key={type} onClick={() => chooseChangeType(type)}>
                     {type}
@@ -645,7 +645,7 @@ const SelfFrontDesk: React.FC = () => {
           </div>
 
           {/* ── stats strip ── */}
-          <div className="border-border-muted mt-auto flex flex-wrap items-center gap-4 border-t pt-3.5">
+          <div className="border-border-muted mt-auto flex flex-wrap items-center gap-8 border-t pt-3.5">
             <div>
               <div className="text-primary-alpha flex items-baseline gap-1 text-xl font-extrabold tracking-tight">
                 {stats.avgApprovalDays !== null ? (
