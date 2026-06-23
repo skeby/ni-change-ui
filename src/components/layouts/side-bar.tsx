@@ -12,7 +12,7 @@ import {
   FaServer,
   FaListAlt,
   FaSitemap,
-  FaProjectDiagram,
+  // FaProjectDiagram,
   FaMapMarkedAlt,
   FaConciergeBell,
 } from "react-icons/fa";
@@ -62,7 +62,7 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       items: [
         { name: "Dashboard", path: "/dashboard", icon: BiSolidDashboard },
         // { name: "Change Journey", path: "/change-journey", icon: FaRoute },
-        { name: "Change Graph", path: "/graph", icon: FaProjectDiagram },
+        // { name: "Change Graph", path: "/graph", icon: FaProjectDiagram },
         { name: "Change Map", path: "/map", icon: FaMapMarkedAlt },
       ],
     },
