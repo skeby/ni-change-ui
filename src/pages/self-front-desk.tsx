@@ -11,6 +11,7 @@ import {
   Send,
   Sparkles,
   SlidersHorizontal,
+  RotateCcw,
 } from "lucide-react";
 import { useAppSelector } from "../state/store";
 import { Utils } from "../utils";
@@ -608,9 +609,10 @@ const SelfFrontDesk: React.FC = () => {
                 <button
                   type="button"
                   onClick={restart}
-                  className="text-fade hover:text-primary cursor-pointer border-none bg-transparent text-xs font-semibold underline-offset-2 hover:underline"
+                  className="border border-primary/30 hover:border-primary hover:bg-primary-light dark:hover:bg-primary/10 text-primary flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition-all hover:-translate-y-0.5 shadow-sm bg-bg"
                 >
-                  ← Start over
+                  <RotateCcw className="h-3 w-3" />
+                  Start over
                 </button>
               </div>
             )}
@@ -630,8 +632,9 @@ const SelfFrontDesk: React.FC = () => {
                   <button
                     type="button"
                     onClick={restart}
-                    className="text-fade hover:text-primary cursor-pointer border-none bg-transparent text-xs font-semibold underline-offset-2 hover:underline"
+                    className="border border-primary/30 hover:border-primary hover:bg-primary-light dark:hover:bg-primary/10 text-primary flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition-all hover:-translate-y-0.5 shadow-sm bg-bg"
                   >
+                    <RotateCcw className="h-3 w-3" />
                     Start over
                   </button>
                 </div>
