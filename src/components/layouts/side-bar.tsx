@@ -14,7 +14,7 @@ import {
   FaSitemap,
   // FaProjectDiagram,
   FaMapMarkedAlt,
-  FaConciergeBell,
+  FaHeadset,
 } from "react-icons/fa";
 import { BiSolidUser } from "react-icons/bi";
 import { Tooltip } from "antd";
@@ -71,9 +71,9 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       visible: isRole(["Requester"]),
       items: [
         {
-          name: "My Frontdesk",
+          name: "IT/IM",
           path: "/",
-          icon: FaConciergeBell,
+          icon: FaHeadset,
         },
         {
           name: "My Dashboard",
@@ -124,8 +124,8 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
 
   return (
     <aside
-      className={`bg-bg border-border relative flex h-screen flex-col border-r transition-all duration-300 ${
-        collapsed ? "w-20" : "w-60"
+      className={`bg-bg border-border relative flex h-screen flex-col border-r transition-all duration-300 ease-in-out ${
+        collapsed ? "w-[68px]" : "w-60"
       }`}
     >
       <div className="border-border relative z-10 flex h-[90px] shrink-0 items-center justify-center border-b px-5">
@@ -161,7 +161,8 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
 
       <div
         className={Utils.cn(
-          "custom-scrollbar relative z-10 flex-1 overflow-y-auto px-4 py-6 transition-all",
+          "custom-scrollbar relative z-10 flex-1 overflow-y-auto py-6 transition-all",
+          collapsed ? "px-3" : "px-4",
           !collapsed ? "space-y-6" : "",
         )}
       >
@@ -241,7 +242,7 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
         )}
       </div>
 
-      <div className="border-border relative z-10 shrink-0 border-t px-4 py-2">
+      <div className={Utils.cn("border-border relative z-10 shrink-0 border-t py-2", collapsed ? "px-3" : "px-4")}>
         <Tooltip title={collapsed ? "Logout" : undefined} placement="right">
           <button
             onClick={() => navigate("/login")}

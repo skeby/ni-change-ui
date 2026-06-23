@@ -48,7 +48,7 @@ const Header: React.FC = () => {
     const path = location.pathname;
     if (path === "/")
       return {
-        title: "Front Desk",
+        title: "IT/IM",
         subtitle: "Your starting point for getting things done.",
       };
     if (path === "/dashboard")

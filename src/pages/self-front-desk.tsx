@@ -248,8 +248,8 @@ const SelfFrontDesk: React.FC = () => {
   const officeLabel = currentUser?.officeLocation;
 
   return (
-    <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-[#eef3f7] via-[#f7f9fb] to-white p-6 sm:p-10 dark:border-border dark:from-[#1f2428] dark:via-[#1c1f22] dark:to-[#1a1a1a]">
+    <>
+      <div className="relative flex min-h-[calc(100vh-90px)] flex-col overflow-hidden bg-gradient-to-b from-[#eef3f7] via-[#f7f9fb] to-white dark:border-border dark:from-[#1f2428] dark:via-[#1c1f22] dark:to-[#1a1a1a]">
         {/* ── decorative ambient backdrop ── */}
         <div
           aria-hidden="true"
@@ -439,32 +439,32 @@ const SelfFrontDesk: React.FC = () => {
         </div>
 
         {/* ── hero content ── */}
-        <div className="relative z-10">
-          <span className="bg-bg border-border text-primary-alpha mb-5 inline-flex items-center gap-2.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold shadow-sm">
+        <div className="relative z-10 mx-auto flex w-full max-w-[980px] flex-1 flex-col px-6 pt-4 pb-3 sm:px-[24px] sm:pt-4 sm:pb-3">
+          <span className="bg-bg border-border text-primary-alpha mb-3 inline-flex self-start items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm">
             <span className="bg-primary animate-fd-beat h-3.5 w-3.5 rounded-full" />
             Hi {firstName}
             {officeLabel ? ` — ${officeLabel}` : ""}
           </span>
 
-          <h1 className="text-primary-alpha max-w-[15ch] text-[2.1rem] leading-[1.08] font-extrabold tracking-tight sm:text-[3rem]">
+          <h1 className="animate-fd-rise-hero text-primary-alpha max-w-[15ch] text-[clamp(1.6rem,3.8vw,2.5rem)] font-extrabold leading-[1.03] tracking-tight">
             What can we help you{" "}
             <span className="text-primary">get moving</span> today?
           </h1>
-          <p className="text-fade mt-4 max-w-[48ch] text-base leading-relaxed sm:text-lg">
+          <p className="animate-fd-rise-hero-delay text-fade mt-2.5 max-w-[48ch] text-[0.95rem] leading-[1.5]">
             No forms to dig for. Tell us what you need and we'll line up the
             right approval.
           </p>
           <button
             type="button"
             onClick={() => setExplainerOpen(true)}
-            className="text-fade hover:text-primary mt-3 inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent text-sm font-semibold underline-offset-2 hover:underline"
+            className="text-fade hover:text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1 border-none bg-transparent text-xs font-semibold underline-offset-2 hover:underline"
           >
             <Info className="h-3.5 w-3.5" />
             How approvals work
           </button>
 
           {/* ── conversation ── */}
-          <div aria-live="polite" className="mt-9 space-y-4">
+          <div aria-live="polite" className="mt-[18px] flex flex-col gap-2.5">
             {turns.map((t, i) =>
               t.role === "bot" ? (
                 <BotBubble key={i}>{t.text}</BotBubble>
@@ -474,7 +474,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "root" && (
-              <div className="grid grid-cols-1 gap-3.5 sm:ml-[58px] sm:grid-cols-2">
+              <div className="animate-fd-rise grid grid-cols-1 gap-2.5 max-w-[720px] sm:ml-[46px] sm:grid-cols-2">
                 <IntentCard
                   icon={KeyRound}
                   tint="bg-primary"
@@ -497,7 +497,7 @@ const SelfFrontDesk: React.FC = () => {
                     chooseRoot(
                       "register",
                       "Register an AI build",
-                      "Nice. What did you build?",
+                      "Nice. What do you want to build?",
                     )
                   }
                 />
@@ -532,7 +532,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "license" && (
-              <div className="flex flex-wrap gap-2.5 sm:ml-[58px]">
+              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
                 {LICENSE_TOOLS.map(([tool, tag]) => (
                   <Chip key={tool} onClick={() => chooseLicense(tool)}>
                     {tool}
@@ -545,7 +545,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "register" && (
-              <div className="flex flex-wrap gap-2.5 sm:ml-[58px]">
+              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
                 {BUILD_TYPES.map((type) => (
                   <Chip key={type} onClick={() => chooseBuild(type)}>
                     {type}
@@ -555,7 +555,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "change" && (
-              <div className="flex flex-wrap gap-2.5 sm:ml-[58px]">
+              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
                 {activeSystems.map((s) => (
                   <Chip
                     key={s.id}
@@ -569,7 +569,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "changeType" && (
-              <div className="flex flex-wrap gap-2.5 sm:ml-[58px]">
+              <div className="animate-fd-rise flex flex-wrap gap-2 sm:ml-[46px]">
                 {CHANGE_TYPES.map((type) => (
                   <Chip key={type} onClick={() => chooseChangeType(type)}>
                     {type}
@@ -584,27 +584,27 @@ const SelfFrontDesk: React.FC = () => {
                   e.preventDefault();
                   submitOther();
                 }}
-                className="flex max-w-xl gap-2.5 sm:ml-[58px]"
+                className="animate-fd-rise flex max-w-xl gap-2.5 sm:ml-[46px]"
               >
                 <input
                   autoFocus
                   value={otherText}
                   onChange={(e) => setOtherText(e.target.value)}
                   placeholder="Describe what you need..."
-                  className="border-border bg-bg text-primary-alpha focus:border-primary flex-1 rounded-full border px-4 py-3 text-sm font-medium outline-none transition-colors"
+                  className="border-border bg-bg text-primary-alpha focus:border-primary flex-1 rounded-full border px-4 py-2 text-xs font-medium outline-none transition-colors"
                 />
                 <button
                   type="submit"
-                  className="bg-primary hover:bg-primary/90 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-none text-white transition-colors"
+                  className="bg-primary hover:bg-primary/90 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-none text-white transition-colors"
                   aria-label="Send"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-3.5 w-3.5" />
                 </button>
               </form>
             )}
 
             {!leaf && step !== "root" && (
-              <div className="sm:ml-[58px]">
+              <div className="animate-fd-rise sm:ml-[46px]">
                 <button
                   type="button"
                   onClick={restart}
@@ -618,19 +618,19 @@ const SelfFrontDesk: React.FC = () => {
             {leaf && (
               <>
                 <BotBubble>{leaf.message}</BotBubble>
-                <div className="flex flex-wrap items-center gap-3 sm:ml-[58px]">
+                <div className="animate-fd-rise flex flex-wrap items-center gap-3 sm:ml-[46px]">
                   <button
                     type="button"
                     onClick={goToWizard}
-                    className="bg-primary hover:bg-primary/90 shadow-primary/30 flex cursor-pointer items-center gap-2 rounded-full border-none px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5"
+                    className="bg-primary hover:bg-primary/90 shadow-primary/30 flex cursor-pointer items-center gap-2 rounded-full border-none px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:-translate-y-0.5"
                   >
                     {leaf.cta}
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
                     onClick={restart}
-                    className="text-fade hover:text-primary cursor-pointer border-none bg-transparent text-sm font-semibold underline-offset-2 hover:underline"
+                    className="text-fade hover:text-primary cursor-pointer border-none bg-transparent text-xs font-semibold underline-offset-2 hover:underline"
                   >
                     Start over
                   </button>
@@ -640,15 +640,15 @@ const SelfFrontDesk: React.FC = () => {
           </div>
 
           {/* ── stats strip ── */}
-          <div className="border-border-muted mt-10 flex flex-wrap items-center gap-6 border-t pt-6">
+          <div className="border-border-muted mt-auto flex flex-wrap items-center gap-4 border-t pt-3.5">
             <div>
-              <div className="text-primary-alpha flex items-baseline gap-1 text-2xl font-extrabold tracking-tight">
+              <div className="text-primary-alpha flex items-baseline gap-1 text-xl font-extrabold tracking-tight">
                 {stats.avgApprovalDays !== null ? (
                   <>
                     <span className="text-primary">
                       {stats.avgApprovalDays.toFixed(1)}
                     </span>
-                    <span className="text-base font-bold">days</span>
+                    <span className="text-sm font-bold">days</span>
                   </>
                 ) : (
                   "—"
@@ -659,11 +659,11 @@ const SelfFrontDesk: React.FC = () => {
               </div>
             </div>
             <div>
-              <div className="text-primary-alpha flex items-baseline gap-1 text-2xl font-extrabold tracking-tight">
+              <div className="text-primary-alpha flex items-baseline gap-1 text-xl font-extrabold tracking-tight">
                 {stats.firstPassPct !== null ? (
                   <>
                     <span className="text-primary">{stats.firstPassPct}</span>
-                    <span className="text-base font-bold">%</span>
+                    <span className="text-sm font-bold">%</span>
                   </>
                 ) : (
                   "—"
@@ -679,7 +679,7 @@ const SelfFrontDesk: React.FC = () => {
                 onClick={() =>
                   navigate(`/self/changes/${stats.lastRequest!.id}`)
                 }
-                className="bg-bg border-border hover:border-primary ml-auto flex cursor-pointer items-center gap-2.5 rounded-full border px-4 py-2 text-sm font-semibold shadow-sm transition-colors"
+                className="bg-bg border-border hover:border-primary ml-auto flex cursor-pointer items-center gap-2.5 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm transition-colors"
               >
                 <span className="text-fade">Last request</span>
                 <span className="bg-primary-light text-primary dark:bg-primary/15 rounded-full px-2.5 py-0.5 font-mono text-[11px] font-bold">
@@ -746,17 +746,25 @@ const SelfFrontDesk: React.FC = () => {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <PipeNode>Request submitted</PipeNode>
-          {resolvedStages.map((stage) => (
+          <PipeNode delayMs={0}>Request submitted</PipeNode>
+          {resolvedStages.map((stage, i) => (
             <React.Fragment key={stage.id}>
-              <ArrowRight className="text-fade-2 h-3.5 w-3.5" />
-              <PipeNode highlight>
+              <ArrowRight
+                className="animate-fd-pop text-fade-2 h-3.5 w-3.5"
+                style={{ animationDelay: `${(i + 1) * 70}ms` }}
+              />
+              <PipeNode highlight delayMs={(i + 1) * 70}>
                 {stage.type === "role_based" ? stage.role : "Reviewer"}
               </PipeNode>
             </React.Fragment>
           ))}
-          <ArrowRight className="text-fade-2 h-3.5 w-3.5" />
-          <PipeNode highlight>Decision</PipeNode>
+          <ArrowRight
+            className="animate-fd-pop text-fade-2 h-3.5 w-3.5"
+            style={{ animationDelay: `${(resolvedStages.length + 1) * 70}ms` }}
+          />
+          <PipeNode highlight delayMs={(resolvedStages.length + 1) * 70}>
+            Decision
+          </PipeNode>
         </div>
 
         <p className="text-body-xs text-fade border-border-muted mt-4 border-t pt-3.5">
@@ -765,26 +773,26 @@ const SelfFrontDesk: React.FC = () => {
             : `This risk level routes through ${resolvedStages.length} approval stage${resolvedStages.length === 1 ? "" : "s"} before a decision is made.`}
         </p>
       </Modal>
-    </div>
+    </>
   );
 };
 
 /* ── presentational helpers ── */
 
 const BotBubble: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex items-start gap-3.5">
-    <div className="bg-bg border-border relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border shadow-sm">
-      <span className="bg-primary animate-fd-beat h-4 w-4 rounded-full" />
+  <div className="animate-fd-rise flex items-start gap-2.5">
+    <div className="bg-bg border-border relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border shadow-sm">
+      <span className="bg-primary animate-fd-beat h-3 w-3 rounded-full" />
     </div>
-    <div className="bg-bg border-border text-primary-alpha max-w-xl rounded-2xl rounded-tl-md border px-5 py-4 text-[1.05rem] font-semibold shadow-sm">
+    <div className="bg-bg border-border text-primary-alpha max-w-xl rounded-xl rounded-tl-md border px-4 py-2.5 text-[0.95rem] font-semibold shadow-sm">
       {children}
     </div>
   </div>
 );
 
 const UserBubble: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex justify-end">
-    <div className="bg-secondary text-secondary-foreground max-w-md rounded-2xl rounded-tr-md px-5 py-3 text-sm font-semibold">
+  <div className="animate-fd-rise flex justify-end">
+    <div className="bg-secondary text-secondary-foreground max-w-md rounded-xl rounded-tr-md px-3.5 py-2 text-xs font-semibold">
       {children}
     </div>
   </div>
@@ -801,26 +809,27 @@ const IntentCard: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`card group relative cursor-pointer overflow-hidden border border-border p-5 text-left transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg ${
-      systems ? "pb-12" : ""
+    className={`card group relative cursor-pointer overflow-hidden border border-border p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
+      systems ? "pb-10" : ""
     }`}
   >
     <div
-      className={`mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl ${tint}`}
+      className={`mb-2.5 flex h-9 w-9 items-center justify-center rounded-lg ${tint}`}
     >
-      <Icon className="h-5 w-5 text-white" />
+      <Icon className="h-4 w-4 text-white" />
     </div>
-    <h3 className="text-body-md text-primary-alpha font-bold">{title}</h3>
-    <p className="text-body-sm text-fade mt-1 leading-snug">{description}</p>
-    <span className="bg-bg-muted text-primary-alpha group-hover:bg-primary absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:text-white">
-      <ArrowRight className="h-3.5 w-3.5" />
+    <h3 className="text-sm text-primary-alpha font-bold">{title}</h3>
+    <p className="text-xs text-fade mt-0.5 leading-snug">{description}</p>
+    <span className="bg-bg-muted text-primary-alpha group-hover:bg-primary absolute top-4 right-4 flex h-7 w-7 items-center justify-center rounded-full transition-colors group-hover:text-white">
+      <ArrowRight className="h-3 w-3" />
     </span>
     {systems && systems.length > 0 && (
-      <span className="absolute bottom-4 left-5 right-4 flex flex-wrap gap-1.5">
-        {systems.map((name) => (
+      <span className="absolute bottom-3 left-4 right-4 flex flex-wrap gap-1">
+        {systems.map((name, i) => (
           <span
             key={name}
             className="bg-bg border-border text-primary-alpha translate-y-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
+            style={{ transitionDelay: `${i * 70}ms` }}
           >
             {name}
           </span>
@@ -839,7 +848,7 @@ const Chip: React.FC<{
     type="button"
     title={title}
     onClick={onClick}
-    className="border-border bg-bg text-primary-alpha hover:border-primary hover:bg-primary-light dark:hover:bg-primary/10 cursor-pointer rounded-full border px-4 py-2.5 text-sm font-semibold transition-all hover:-translate-y-0.5"
+    className="border-border bg-bg text-primary-alpha hover:border-primary hover:bg-primary-light dark:hover:bg-primary/10 cursor-pointer rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all hover:-translate-y-0.5"
   >
     {children}
   </button>
@@ -866,13 +875,15 @@ const ToggleChip: React.FC<{
 const PipeNode: React.FC<{
   children: React.ReactNode;
   highlight?: boolean;
-}> = ({ children, highlight }) => (
+  delayMs?: number;
+}> = ({ children, highlight, delayMs }) => (
   <span
-    className={`rounded-lg px-3 py-2 text-xs font-bold ${
+    className={`animate-fd-pop rounded-lg px-3 py-2 text-xs font-bold ${
       highlight
         ? "bg-primary-light text-primary dark:bg-primary/15"
         : "bg-bg-muted text-primary-alpha"
     }`}
+    style={delayMs ? { animationDelay: `${delayMs}ms` } : undefined}
   >
     {children}
   </span>

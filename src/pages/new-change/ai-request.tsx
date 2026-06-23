@@ -23,12 +23,26 @@ const aiRequestSchema = z.object({
   requiresSensitiveData: z.string().min(1, "Required"),
   usesProductionData: z.string().min(1, "Required"),
   usesDefaultStack: z.string().min(1, "Required"),
+  customStack: z.array(z.string()).optional(),
   llmChoices: z.array(z.string()).min(1, "Select at least one LLM"),
   integratesWithSystems: z.array(z.string()),
   postBuildSupport: z.string().min(1, "Required"),
 });
 
 type AIRequestValues = z.infer<typeof aiRequestSchema>;
+
+const DEFAULT_STACKS = ["Next.js", "React", "TailwindCSS", "Angular"];
+const CUSTOM_STACK_OPTIONS = [
+  "Vue",
+  "Svelte",
+  "Django",
+  "Flask",
+  "Spring Boot",
+  "MySQL",
+  "MongoDB",
+  "Go",
+  "Rust",
+].map((o) => ({ label: o, value: o }));
 
 const COMPLEXITY_OPTIONS = ["Simple", "Moderate", "Complex", "Highly Complex"];
 const YES_NO_OPTIONS = [
@@ -303,17 +317,50 @@ const AIRequestStep: React.FC = () => {
         <FormField
           name="usesDefaultStack"
           control={control}
-          label="Use anything from the default stack?"
+          label="Are you using the default approved tech stack?"
           required
+          rootClassName="col-span-full"
         >
-          <Select
-            value={watch("usesDefaultStack") || undefined}
-            onChange={(v) => setValue("usesDefaultStack", v)}
-            placeholder="Yes / No"
-            className={FORM.CLASS_NAME}
-            options={YES_NO_OPTIONS}
-          />
+          <>
+            <div className="mb-3 text-sm text-fade">
+              Our default approved stack includes:{" "}
+              <strong>{DEFAULT_STACKS.join(", ")}</strong>.
+            </div>
+            <Select
+              value={watch("usesDefaultStack") || undefined}
+              onChange={(v) => {
+                setValue("usesDefaultStack", v);
+                if (v === "Yes") setValue("customStack", []);
+              }}
+              placeholder="Yes / No"
+              className={FORM.CLASS_NAME}
+              options={YES_NO_OPTIONS}
+            />
+          </>
         </FormField>
+
+        {watch("usesDefaultStack") === "No" && (
+          <FormField
+            name="customStack"
+            control={control}
+            label="Which technologies are you using instead?"
+            required
+            rootClassName="col-span-full"
+          >
+            <Select
+              mode="tags"
+              value={watch("customStack") || []}
+              onChange={(v) => setValue("customStack", v)}
+              placeholder="Type or select technologies..."
+              className={FORM.CLASS_NAME}
+              options={CUSTOM_STACK_OPTIONS}
+              classNames={{
+                item: "h-10! items-center! rounded-lg!",
+                input: "h-11!",
+              }}
+            />
+          </FormField>
+        )}
 
         <FormField
           name="postBuildSupport"
@@ -345,6 +392,7 @@ const AIRequestStep: React.FC = () => {
             className={FORM.CLASS_NAME}
             classNames={{
               item: "h-10! items-center! rounded-lg!",
+              input: "h-11!",
             }}
             options={LLM_OPTIONS}
           />
@@ -365,6 +413,7 @@ const AIRequestStep: React.FC = () => {
             className={FORM.CLASS_NAME}
             classNames={{
               item: "h-10! items-center! rounded-lg!",
+              input: "h-11!",
             }}
             options={systemOptions}
           />

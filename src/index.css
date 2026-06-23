@@ -483,6 +483,28 @@ body {
   }
 }
 
+@keyframes fd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fd-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .animate-fd-drift-1 {
   animation: fd-drift-1 70s linear infinite;
 }
@@ -511,6 +533,22 @@ body {
   animation: fd-fly 40s linear infinite;
 }
 
+.animate-fd-rise {
+  animation: fd-rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-fd-rise-hero {
+  animation: fd-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-fd-rise-hero-delay {
+  animation: fd-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.08s both;
+}
+
+.animate-fd-pop {
+  animation: fd-pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fd-drift-1,
   .animate-fd-drift-2,
@@ -518,7 +556,11 @@ body {
   .animate-fd-sway-reverse,
   .animate-fd-beat,
   .animate-fd-ride,
-  .animate-fd-fly {
+  .animate-fd-fly,
+  .animate-fd-rise,
+  .animate-fd-rise-hero,
+  .animate-fd-rise-hero-delay,
+  .animate-fd-pop {
     animation: none !important;
   }
 }
