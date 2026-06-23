@@ -440,29 +440,31 @@ const SelfFrontDesk: React.FC = () => {
         </div>
 
         {/* ── hero content ── */}
-        <div className="relative z-10 mx-auto flex w-full max-w-[980px] flex-1 flex-col px-6 pt-4 pb-3 sm:px-[24px] sm:pt-4 sm:pb-3">
-          <span className="bg-bg border-border text-primary-alpha mb-3 inline-flex self-start items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm">
-            <span className="bg-primary animate-fd-beat h-3.5 w-3.5 rounded-full" />
-            Hi {firstName}
-            {officeLabel ? ` — ${officeLabel}` : ""}
-          </span>
+        <div className="relative z-10 mx-auto flex w-full max-w-[980px] flex-1 flex-col px-6 pt-7 pb-3 sm:px-[24px] sm:pt-7 sm:pb-3">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="bg-bg border-border text-primary-alpha inline-flex self-start items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold shadow-sm">
+              <span className="bg-primary animate-fd-beat h-3.5 w-3.5 rounded-full" />
+              Hi {firstName}
+              {officeLabel ? ` — ${officeLabel}` : ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => setExplainerOpen(true)}
+              className="text-fade hover:text-primary inline-flex cursor-pointer items-center gap-1 border-none bg-transparent text-xs font-semibold underline-offset-2 hover:underline"
+            >
+              <Info className="h-3.5 w-3.5" />
+              How approvals work
+            </button>
+          </div>
 
           <h1 className="animate-fd-rise-hero text-primary-alpha max-w-[15ch] text-[clamp(1.6rem,3.8vw,2.5rem)] font-extrabold leading-[1.03] tracking-tight">
             What can we help you{" "}
             <span className="text-primary">get moving</span> today?
           </h1>
-          <p className="animate-fd-rise-hero-delay text-fade mt-2.5 max-w-[48ch] text-[0.95rem] leading-[1.5]">
+          <p className="animate-fd-rise-hero-delay text-fade mt-3.5 max-w-[48ch] text-[0.95rem] leading-[1.5]">
             No forms to dig for. Tell us what you need and we'll line up the
             right approval.
           </p>
-          <button
-            type="button"
-            onClick={() => setExplainerOpen(true)}
-            className="text-fade hover:text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1 border-none bg-transparent text-xs font-semibold underline-offset-2 hover:underline"
-          >
-            <Info className="h-3.5 w-3.5" />
-            How approvals work
-          </button>
 
           {/* ── conversation ── */}
           <div aria-live="polite" className="mt-[18px] flex flex-col gap-2.5">
@@ -475,7 +477,7 @@ const SelfFrontDesk: React.FC = () => {
             )}
 
             {!leaf && step === "root" && (
-              <div className="animate-fd-rise grid grid-cols-1 gap-2.5 max-w-[720px] sm:ml-[46px] sm:grid-cols-2">
+              <div className="animate-fd-rise mt-3 grid grid-cols-1 gap-2.5 sm:gap-5 max-w-[720px] sm:ml-[46px] sm:grid-cols-2">
                 <IntentCard
                   icon={KeyRound}
                   tint="bg-primary"
