@@ -63,6 +63,10 @@ const router = createBrowserRouter([
             lazy: lazyRoute(() => import("./pages/dashboard")),
           },
           {
+            path: "self",
+            lazy: lazyRoute(() => import("./pages/self-front-desk")),
+          },
+          {
             path: "self/dashboard",
             lazy: lazyRoute(() => import("./pages/self-dashboard")),
           },

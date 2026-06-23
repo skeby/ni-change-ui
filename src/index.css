@@ -426,6 +426,103 @@ body {
   padding: 1.5rem !important;
 }
 
+/* ── Front desk decorative ambient animations ── */
+@keyframes fd-drift-1 {
+  to {
+    transform: translateX(120vw);
+  }
+}
+
+@keyframes fd-drift-2 {
+  to {
+    transform: translateX(125vw);
+  }
+}
+
+@keyframes fd-sway {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: rotate(1.6deg);
+  }
+}
+
+@keyframes fd-beat {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(164, 52, 58, 0.5);
+  }
+  55% {
+    box-shadow: 0 0 0 7px rgba(164, 52, 58, 0);
+  }
+}
+
+@keyframes fd-ride {
+  0% {
+    transform: translateX(-260px);
+  }
+  45% {
+    transform: translateX(1540px);
+  }
+  100% {
+    transform: translateX(1540px);
+  }
+}
+
+@keyframes fd-fly {
+  0% {
+    transform: translate(-150px, 0);
+  }
+  55% {
+    transform: translate(118vw, 46px);
+  }
+  100% {
+    transform: translate(118vw, 46px);
+  }
+}
+
+.animate-fd-drift-1 {
+  animation: fd-drift-1 70s linear infinite;
+}
+
+.animate-fd-drift-2 {
+  animation: fd-drift-2 95s linear infinite;
+}
+
+.animate-fd-sway {
+  animation: fd-sway 7s ease-in-out infinite;
+}
+
+.animate-fd-sway-reverse {
+  animation: fd-sway 8.5s ease-in-out infinite reverse;
+}
+
+.animate-fd-beat {
+  animation: fd-beat 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.animate-fd-ride {
+  animation: fd-ride 24s linear infinite;
+}
+
+.animate-fd-fly {
+  animation: fd-fly 40s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fd-drift-1,
+  .animate-fd-drift-2,
+  .animate-fd-sway,
+  .animate-fd-sway-reverse,
+  .animate-fd-beat,
+  .animate-fd-ride,
+  .animate-fd-fly {
+    animation: none !important;
+  }
+}
+
 @media print {
   .ant-tooltip,
   .ant-tooltip-pure,

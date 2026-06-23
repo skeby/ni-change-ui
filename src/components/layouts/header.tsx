@@ -51,6 +51,11 @@ const Header: React.FC = () => {
         title: "Dashboard Overview",
         subtitle: `Welcome back, ${currentUser.name}. Here's what's happening today.`,
       };
+    if (path === "/self")
+      return {
+        title: "Front Desk",
+        subtitle: "Your starting point for getting things done.",
+      };
     if (path === "/self/dashboard")
       return {
         title: "My Dashboard",

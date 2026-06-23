@@ -14,6 +14,7 @@ import {
   FaSitemap,
   FaProjectDiagram,
   FaMapMarkedAlt,
+  FaConciergeBell,
 } from "react-icons/fa";
 import { BiSolidUser } from "react-icons/bi";
 import { Tooltip } from "antd";
@@ -69,6 +70,11 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
       title: "My Workspace",
       visible: isRole(["Requester"]),
       items: [
+        {
+          name: "My Frontdesk",
+          path: "/self",
+          icon: FaConciergeBell,
+        },
         {
           name: "My Dashboard",
           path: "/self/dashboard",
@@ -175,8 +181,8 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
                   <div className="space-y-1">
                     {group.items.map((item) => {
                       const isActive =
-                        item.path === "/"
-                          ? location.pathname === "/"
+                        item.path === "/" || item.path === "/self"
+                          ? location.pathname === item.path
                           : location.pathname.startsWith(item.path);
                       const Icon = item.icon;
 

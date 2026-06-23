@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -45,6 +45,7 @@ const aiLicenseTemplate = (categoryName: string) => ({
 const GeneralStep: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const [searchParams] = useSearchParams();
   const { formData, updateFormData, draftId } = useWizard();
   const { currentUserId, users, activeRoles } = useAppSelector(
     (state) => state.auth,
@@ -66,13 +67,17 @@ const GeneralStep: React.FC = () => {
       .map((c) => ({ label: c.name, value: c.name })),
   })).filter((g) => g.options.length > 0);
 
+  // Front Desk (the /self landing page) links here with the category/title/
+  // description/system already worked out from its guided flow — prefer
+  // those over the (empty, pre-draft) wizard context on first mount.
   const { control, handleSubmit, setValue, watch } = useForm<GeneralValues>({
     resolver: zodResolver(generalSchema),
     defaultValues: {
-      title: formData.title,
-      description: formData.description,
-      systemAffected: formData.systemAffected,
-      category: formData.category,
+      title: searchParams.get("title") || formData.title,
+      description: searchParams.get("description") || formData.description,
+      systemAffected:
+        searchParams.get("systemAffected") || formData.systemAffected,
+      category: searchParams.get("category") || formData.category,
       requestedTimeline: formData.requestedTimeline,
     },
   });

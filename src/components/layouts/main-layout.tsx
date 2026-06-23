@@ -19,7 +19,7 @@ const MainLayout = () => {
 
   if (location.pathname === "/") {
     if (!isRole(["Admin"])) {
-      return <Navigate to="/self/dashboard" replace />
+      return <Navigate to="/self" replace />
     }
   }
 
