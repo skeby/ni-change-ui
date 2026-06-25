@@ -185,6 +185,16 @@ export const MyChanges: React.FC = () => {
       ),
     },
     {
+      title: "Kind",
+      key: "kind",
+      width: 160,
+      render: (_: unknown, record: ChangeRequest) => (
+        <span className="text-fade font-medium">
+          {Utils.resolveCategoryKindLabel(categories, record.category)}
+        </span>
+      ),
+    },
+    {
       title: "Category",
       dataIndex: "category",
       key: "category",

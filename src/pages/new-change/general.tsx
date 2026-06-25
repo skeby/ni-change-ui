@@ -213,7 +213,7 @@ const GeneralStep: React.FC = () => {
           rootClassName="col-span-full"
         >
           <Input
-            placeholder="e.g. Update invoice approval workflow in NetSuite"
+            placeholder="e.g. Update invoice approval workflow in NICOR (Net Suite)"
             className={FORM.CLASS_NAME}
           />
         </FormField>

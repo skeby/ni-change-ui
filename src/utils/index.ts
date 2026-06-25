@@ -76,6 +76,16 @@ export class Utils {
     return num.toString();
   }
 
+  // Resolves the display label for a category's behavioral kind, looked up
+  // by category name (CategoryOption.name as stored on a ChangeRequest).
+  static resolveCategoryKindLabel(
+    categories: CategoryOption[],
+    categoryName: string,
+  ): string {
+    const category = categories.find((c) => c.name === categoryName);
+    return category ? CATEGORY_KIND_LABELS[category.kind] : "—";
+  }
+
   // Groups active categories by their behavioral kind for use as antd Select
   // `options` (each group renders as an OptGroup). Kinds with no active
   // categories are omitted.

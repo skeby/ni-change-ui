@@ -907,7 +907,7 @@ export const ChangeDetail: React.FC = () => {
             <Input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              placeholder="e.g. Update invoice approval workflow in NetSuite"
+              placeholder="e.g. Update invoice approval workflow in NICOR (Net Suite)"
               className={FORM.CLASS_NAME}
             />
           </div>

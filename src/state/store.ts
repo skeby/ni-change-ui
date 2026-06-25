@@ -38,7 +38,7 @@ const localStorageEngine = {
 // Clean up old persist key
 if (typeof window !== "undefined" && window.localStorage) {
   try {
-    localStorage.removeItem("persist:ni-change-v2");
+    localStorage.removeItem("persist:ni-change");
   } catch (e) {
     console.error("Failed to clean up old persist key", e);
   }
@@ -53,7 +53,7 @@ const rootReducer = combineReducers({
 });
 
 const persistConfig = {
-  key: "ni-change",
+  key: "ni-change-v1",
   storage: localStorageEngine,
   whitelist: ["auth", "changes", "settings", "app", "notifications"],
 };
