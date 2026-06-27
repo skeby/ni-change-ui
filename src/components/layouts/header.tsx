@@ -117,8 +117,7 @@ const Header: React.FC = () => {
     if (path === "/settings/categories")
       return {
         title: "Change Categories",
-        subtitle:
-          "Configure change request categories and default risk levels.",
+        subtitle: "Configure change request categories.",
       };
     if (path === "/settings/risk-levels")
       return {

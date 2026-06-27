@@ -11,6 +11,7 @@ export interface UserProfile {
   lastName?: string
   phone?: string
   officeLocation?: string
+  hasTakenAICourse?: boolean
 }
 
 interface AuthState {
@@ -31,6 +32,7 @@ const mockUsers: UserProfile[] = [
     lastName: "Akinsanya",
     phone: "+1-613-555-0199",
     officeLocation: "Ottawa, Canada",
+    hasTakenAICourse: true,
   },
   {
     id: "sarah.j@company.com",
@@ -43,6 +45,7 @@ const mockUsers: UserProfile[] = [
     lastName: "Jenkins",
     phone: "+1-416-555-0234",
     officeLocation: "Toronto, Canada",
+    hasTakenAICourse: true,
   },
   {
     id: "marcus.v@company.com",
@@ -55,6 +58,7 @@ const mockUsers: UserProfile[] = [
     lastName: "Vance",
     phone: "+1-604-555-0178",
     officeLocation: "Vancouver, Canada",
+    hasTakenAICourse: true,
   },
   {
     id: "elena.r@company.com",
@@ -67,6 +71,7 @@ const mockUsers: UserProfile[] = [
     lastName: "Rostova",
     phone: "+1-514-555-0311",
     officeLocation: "Montreal, Canada",
+    hasTakenAICourse: false,
   },
 ]
 

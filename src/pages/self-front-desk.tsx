@@ -4,18 +4,30 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { Modal } from "antd";
 import {
+  ArrowLeft,
   ArrowRight,
+  Bot,
+  BookOpenCheck,
+  Check,
+  ExternalLink,
+  GraduationCap,
   Info,
   KeyRound,
+  Lightbulb,
   MessageCircle,
+  Newspaper,
   Send,
   Sparkles,
   SlidersHorizontal,
   RotateCcw,
+  Trophy,
+  Users,
 } from "lucide-react";
-import { useAppSelector } from "../state/store";
+import { useAppDispatch, useAppSelector } from "../state/store";
 import { Utils } from "../utils";
 import type { ChangeCategoryKind } from "../state/slices/settings-slice";
+import { addIdea } from "../state/slices/ai-ideas-slice";
+import { updateUserProfile } from "../state/slices/auth-slice";
 
 dayjs.extend(relativeTime);
 
@@ -25,7 +37,17 @@ type StepKey =
   | "register"
   | "change"
   | "changeType"
-  | "other";
+  | "other"
+  | "aiHub";
+
+type AITopic =
+  | "builders"
+  | "idea"
+  | "teams"
+  | "absorb"
+  | "framework"
+  | "news"
+  | "workspace";
 
 interface Turn {
   role: "bot" | "user";
@@ -65,8 +87,73 @@ const CHANGE_TYPES = [
   "Config update",
 ];
 
+// Not yet wired up to a real destination — use NI's site as a stand-in link.
+const PLACEHOLDER_LINK = "https://nutritionintl.org";
+const AI_WORKSPACE_LINK = "https://ni-ai-workspace.vercel.app";
+
+const SHIPPED_BUILD_STATUSES = ["Deployed", "Post-Deployment Review", "Closed"];
+
+const AI_NEWS: { title: string; snippet: string; timeframe: string }[] = [
+  {
+    title: "Why more teams are pairing AI agents with human review",
+    snippet:
+      "A look at how organizations are blending automation with sign-off checkpoints to ship faster without losing oversight.",
+    timeframe: "This week",
+  },
+  {
+    title: "The case for starting small with AI builds",
+    snippet:
+      "Smaller, well-scoped AI projects are outperforming sprawling ones — teams ship sooner and learn faster from real usage.",
+    timeframe: "Last week",
+  },
+  {
+    title: 'What "responsible AI" actually looks like day to day',
+    snippet:
+      "Practical habits — data handling, bias checks, fallback plans — that separate responsible AI use from risky shortcuts.",
+    timeframe: "2 weeks ago",
+  },
+];
+
+const EXTERNAL_AI_LINKS: Record<
+  "teams" | "absorb" | "workspace",
+  {
+    icon: React.FC<{ className?: string }>;
+    blurb: string;
+    href: string;
+    cta: string;
+  }
+> = {
+  teams: {
+    icon: Users,
+    blurb: "Join the conversation with other AI builders and enthusiasts.",
+    href: PLACEHOLDER_LINK,
+    cta: "Open AI Teams channel",
+  },
+  absorb: {
+    icon: GraduationCap,
+    blurb: "Build your AI skills with courses on Absorb.",
+    href: PLACEHOLDER_LINK,
+    cta: "Browse AI courses",
+  },
+  workspace: {
+    icon: Bot,
+    blurb: "Chat with approved AI models, all in one place.",
+    href: AI_WORKSPACE_LINK,
+    cta: "Open NI AI Workspace",
+  },
+};
+
+const getInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
 const SelfFrontDesk: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { currentUserId, users } = useAppSelector((state) => state.auth);
   const { changes } = useAppSelector((state) => state.changes);
   const { systems, categories, riskLevels, approvalRules } = useAppSelector(
@@ -82,6 +169,34 @@ const SelfFrontDesk: React.FC = () => {
     [systems],
   );
 
+  /* ── AI hub data ── */
+  const categoryKindByName = useMemo(
+    () =>
+      Object.fromEntries(categories.map((c) => [c.name, c.kind])) as Record<
+        string,
+        ChangeCategoryKind
+      >,
+    [categories],
+  );
+
+  const aiBuilds = useMemo(
+    () =>
+      changes
+        .filter(
+          (c) =>
+            categoryKindByName[c.category] === "ai_build" &&
+            SHIPPED_BUILD_STATUSES.includes(c.status),
+        )
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        )
+        .slice(0, 6),
+    [changes, categoryKindByName],
+  );
+
+  const canSubmitIdea = !!currentUser?.hasTakenAICourse;
+
   /* ── conversation state ── */
   const [turns, setTurns] = useState<Turn[]>([
     { role: "bot", text: ROOT_BOT_MESSAGE },
@@ -91,6 +206,18 @@ const SelfFrontDesk: React.FC = () => {
   const [leaf, setLeaf] = useState<LeafResult | null>(null);
   const [otherText, setOtherText] = useState("");
 
+  /* ── AI hub conversation state ── */
+  const [aiTopic, setAiTopic] = useState<AITopic | null>(null);
+  // Turn count right after the AI menu intro — lets "Back to AI menu" drop
+  // whatever was said while browsing a topic instead of leaving it stranded
+  // in the transcript.
+  const [aiMenuTurnCount, setAiMenuTurnCount] = useState<number | null>(null);
+  const [frameworkAnswer, setFrameworkAnswer] = useState<"yes" | "no" | null>(
+    null,
+  );
+  const [ideaTitle, setIdeaTitle] = useState("");
+  const [ideaDescription, setIdeaDescription] = useState("");
+
   const pushTurn = (turn: Turn) => setTurns((prev) => [...prev, turn]);
 
   const restart = () => {
@@ -99,12 +226,72 @@ const SelfFrontDesk: React.FC = () => {
     setSelectedSystem("");
     setLeaf(null);
     setOtherText("");
+    setAiTopic(null);
+    setAiMenuTurnCount(null);
+    setFrameworkAnswer(null);
+    setIdeaTitle("");
+    setIdeaDescription("");
   };
 
   const chooseRoot = (key: StepKey, label: string, botMessage: string) => {
     pushTurn({ role: "user", text: label });
     pushTurn({ role: "bot", text: botMessage });
     setStep(key);
+    if (key === "aiHub") {
+      setAiMenuTurnCount(turns.length + 2);
+    }
+  };
+
+  const chooseAITopic = (topic: AITopic, label: string) => {
+    pushTurn({ role: "user", text: label });
+    setAiTopic(topic);
+  };
+
+  const backToAIMenu = () => {
+    setAiTopic(null);
+    setFrameworkAnswer(null);
+    setIdeaTitle("");
+    setIdeaDescription("");
+    if (aiMenuTurnCount !== null) {
+      setTurns((prev) => prev.slice(0, aiMenuTurnCount));
+    }
+  };
+
+  const markCourseComplete = () => {
+    if (!currentUser) return;
+    dispatch(updateUserProfile({ hasTakenAICourse: true }));
+    pushTurn({
+      role: "bot",
+      text: "Nice — you're all set. Go ahead and share your idea below.",
+    });
+  };
+
+  const submitIdea = () => {
+    const title = ideaTitle.trim();
+    const description = ideaDescription.trim();
+    if (!title || !currentUser) return;
+    dispatch(
+      addIdea({
+        id: `idea-${Date.now()}`,
+        title,
+        description,
+        submitterId: currentUser.id,
+        submitterName: currentUser.name,
+        submitterDepartment: currentUser.department,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+    pushTurn({ role: "user", text: title });
+    pushTurn({
+      role: "bot",
+      text: "Thanks — got it! The AI team will take a look.",
+    });
+    setIdeaTitle("");
+    setIdeaDescription("");
+    setAiTopic(null);
+    // Keep the confirmation in the transcript — advance the menu anchor past
+    // it so a later "Back to AI menu" doesn't wipe out this exchange too.
+    setAiMenuTurnCount(turns.length + 2);
   };
 
   const chooseLicense = (tool: string) => {
@@ -247,6 +434,12 @@ const SelfFrontDesk: React.FC = () => {
   const firstName =
     currentUser?.firstName || currentUser?.name?.split(" ")[0] || "there";
   const officeLabel = currentUser?.officeLocation;
+
+  const externalLink =
+    aiTopic === "teams" || aiTopic === "absorb" || aiTopic === "workspace"
+      ? EXTERNAL_AI_LINKS[aiTopic]
+      : null;
+  const ExternalLinkIcon = externalLink?.icon;
 
   return (
     <>
@@ -531,6 +724,20 @@ const SelfFrontDesk: React.FC = () => {
                     )
                   }
                 />
+                <IntentCard
+                  wide
+                  icon={Bot}
+                  tint="bg-gradient-to-r from-primary to-secondary"
+                  title="Explore AI at NI"
+                  description="Builders, ideas, tools, and news — all in one place."
+                  onClick={() =>
+                    chooseRoot(
+                      "aiHub",
+                      "Explore AI at NI",
+                      "Here's everything AI-related — pick what you need.",
+                    )
+                  }
+                />
               </div>
             )}
 
@@ -604,6 +811,281 @@ const SelfFrontDesk: React.FC = () => {
                   <Send className="h-3.5 w-3.5" />
                 </button>
               </form>
+            )}
+
+            {!leaf && step === "aiHub" && (
+              <>
+                {aiTopic === null && (
+                  <div className="animate-fd-rise mt-1 grid grid-cols-1 gap-2.5 sm:gap-4 max-w-[880px] sm:ml-[46px] sm:grid-cols-2 lg:grid-cols-3">
+                    <IntentCard
+                      icon={Trophy}
+                      tint="bg-primary"
+                      title="See who's building with AI"
+                      description="Meet the people shipping AI solutions across NI."
+                      onClick={() =>
+                        chooseAITopic("builders", "See who's building with AI")
+                      }
+                    />
+                    <IntentCard
+                      icon={Lightbulb}
+                      tint="bg-secondary"
+                      title="Share an idea"
+                      description="Got an idea for how AI could help your team?"
+                      systems={canSubmitIdea ? undefined : ["Course required"]}
+                      onClick={() => chooseAITopic("idea", "Share an idea")}
+                    />
+                    <IntentCard
+                      icon={Users}
+                      tint="bg-primary"
+                      title="AI Teams channel"
+                      description="Join the conversation with other AI builders."
+                      onClick={() => chooseAITopic("teams", "AI Teams channel")}
+                    />
+                    <IntentCard
+                      icon={GraduationCap}
+                      tint="bg-secondary"
+                      title="Take an AI course"
+                      description="Build your AI skills with courses on Absorb."
+                      onClick={() =>
+                        chooseAITopic("absorb", "Take an AI course")
+                      }
+                    />
+                    <IntentCard
+                      icon={BookOpenCheck}
+                      tint="bg-primary"
+                      title="AI framework"
+                      description="Check whether you're up to speed on our AI framework."
+                      onClick={() => chooseAITopic("framework", "AI framework")}
+                    />
+                    <IntentCard
+                      icon={Newspaper}
+                      tint="bg-secondary"
+                      title="AI in the news"
+                      description="Catch up on what's new in the AI world."
+                      onClick={() => chooseAITopic("news", "AI in the news")}
+                    />
+                    <IntentCard
+                      icon={Bot}
+                      tint="bg-primary"
+                      title="NI AI Workspace"
+                      description="Chat with approved AI models in one place."
+                      onClick={() =>
+                        chooseAITopic("workspace", "NI AI Workspace")
+                      }
+                    />
+                  </div>
+                )}
+
+                {aiTopic === "builders" && (
+                  <>
+                    <BotBubble>
+                      Here's who's been building with AI lately:
+                    </BotBubble>
+                    {aiBuilds.length > 0 ? (
+                      <div className="animate-fd-rise flex flex-wrap gap-3 sm:ml-[46px]">
+                        {aiBuilds.map((c) => (
+                          <BuilderCard
+                            key={c.id}
+                            name={c.submitterName}
+                            department={c.submitterDepartment}
+                            title={c.title}
+                            updatedAt={c.updatedAt}
+                            onClick={() => {
+                              // navigate(`/self/changes/${c.id}`);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="animate-fd-rise sm:ml-[46px]">
+                        <p className="text-fade mb-2.5 text-xs font-semibold">
+                          No AI builds delivered yet — be the first!
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            chooseRoot(
+                              "register",
+                              "Register an AI build",
+                              "Nice. What do you want to build?",
+                            )
+                          }
+                          className="bg-primary hover:bg-primary/90 shadow-primary/30 flex cursor-pointer items-center gap-2 rounded-full border-none px-4 py-2 text-xs font-bold text-white shadow-lg transition-all hover:-translate-y-0.5"
+                        >
+                          Register an AI build
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <BackToMenuButton onClick={backToAIMenu} />
+                  </>
+                )}
+
+                {aiTopic === "idea" && (
+                  <>
+                    {canSubmitIdea ? (
+                      <>
+                        <BotBubble>
+                          Got an idea for how AI could help your team? Tell us
+                          about it.
+                        </BotBubble>
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            submitIdea();
+                          }}
+                          className="animate-fd-rise flex max-w-xl flex-col gap-2.5 sm:ml-[46px]"
+                        >
+                          <input
+                            autoFocus
+                            value={ideaTitle}
+                            onChange={(e) => setIdeaTitle(e.target.value)}
+                            placeholder="Give your idea a short title..."
+                            className="border-border bg-bg text-primary-alpha focus:border-primary rounded-full border px-4 py-2 text-xs font-medium outline-none transition-colors"
+                          />
+                          <textarea
+                            value={ideaDescription}
+                            onChange={(e) => setIdeaDescription(e.target.value)}
+                            placeholder="Add a bit more detail (optional)..."
+                            rows={3}
+                            className="border-border bg-bg text-primary-alpha focus:border-primary resize-none rounded-xl border px-4 py-2.5 text-xs font-medium outline-none transition-colors"
+                          />
+                          <button
+                            type="submit"
+                            className="bg-primary hover:bg-primary/90 flex w-fit cursor-pointer items-center gap-2 rounded-full border-none px-4 py-2 text-xs font-bold text-white transition-colors"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Share idea
+                          </button>
+                        </form>
+                      </>
+                    ) : (
+                      <>
+                        <BotBubble>
+                          Submitting AI ideas is unlocked after completing the
+                          AI Fundamentals course.
+                        </BotBubble>
+                        <div className="animate-fd-rise flex flex-wrap items-center gap-3 sm:ml-[46px]">
+                          <a
+                            href={PLACEHOLDER_LINK}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-primary hover:bg-primary/90 shadow-primary/30 inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-4 py-2 text-xs font-bold text-white shadow-lg transition-all hover:-translate-y-0.5"
+                          >
+                            Browse AI courses on Absorb
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={markCourseComplete}
+                            title="Mark the AI Fundamentals course as completed"
+                            className="border border-primary/30 hover:border-primary hover:bg-primary-light dark:hover:bg-primary/10 text-primary flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all hover:-translate-y-0.5 shadow-sm bg-bg"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            I've completed it
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    <BackToMenuButton onClick={backToAIMenu} />
+                  </>
+                )}
+
+                {externalLink && ExternalLinkIcon && (
+                  <>
+                    <BotBubble>{externalLink.blurb}</BotBubble>
+                    <div className="animate-fd-rise sm:ml-[46px]">
+                      <a
+                        href={externalLink.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-primary hover:bg-primary/90 shadow-primary/30 inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-4 py-2 text-xs font-bold text-white shadow-lg transition-all hover:-translate-y-0.5"
+                      >
+                        {externalLink.cta}
+                        <ExternalLinkIcon className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                    <BackToMenuButton onClick={backToAIMenu} />
+                  </>
+                )}
+
+                {aiTopic === "framework" && (
+                  <>
+                    <BotBubble>
+                      Are you familiar with our AI framework?
+                    </BotBubble>
+                    <div className="animate-fd-rise flex flex-wrap gap-2.5 sm:ml-[46px]">
+                      <ToggleChip
+                        active={frameworkAnswer === "yes"}
+                        onClick={() => setFrameworkAnswer("yes")}
+                      >
+                        Yes, I know it
+                      </ToggleChip>
+                      <ToggleChip
+                        active={frameworkAnswer === "no"}
+                        onClick={() => setFrameworkAnswer("no")}
+                      >
+                        No, not yet
+                      </ToggleChip>
+                    </div>
+                    {frameworkAnswer === "no" && (
+                      <>
+                        <BotBubble>
+                          No worries — here's where to look:
+                        </BotBubble>
+                        <div className="animate-fd-rise sm:ml-[46px]">
+                          <a
+                            href={PLACEHOLDER_LINK}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-primary hover:bg-primary/90 shadow-primary/30 inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-4 py-2 text-xs font-bold text-white shadow-lg transition-all hover:-translate-y-0.5"
+                          >
+                            View the AI framework
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        </div>
+                      </>
+                    )}
+                    {frameworkAnswer === "yes" && (
+                      <>
+                        <BotBubble>
+                          Great — you're already up to speed.
+                        </BotBubble>
+                        <div className="animate-fd-rise sm:ml-[46px]">
+                          <a
+                            href={PLACEHOLDER_LINK}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-fade hover:text-primary inline-flex cursor-pointer items-center gap-1 text-xs font-semibold underline-offset-2 hover:underline"
+                          >
+                            Need a refresher? View it anytime
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      </>
+                    )}
+                    <BackToMenuButton onClick={backToAIMenu} />
+                  </>
+                )}
+
+                {aiTopic === "news" && (
+                  <>
+                    <BotBubble>Here's what's new in AI:</BotBubble>
+                    <div className="animate-fd-rise flex max-w-xl flex-col gap-2.5 sm:ml-[46px]">
+                      {AI_NEWS.map((item) => (
+                        <NewsItemRow
+                          key={item.title}
+                          title={item.title}
+                          snippet={item.snippet}
+                          timeframe={item.timeframe}
+                          href={PLACEHOLDER_LINK}
+                        />
+                      ))}
+                    </div>
+                    <BackToMenuButton onClick={backToAIMenu} />
+                  </>
+                )}
+              </>
             )}
 
             {!leaf && step !== "root" && (
@@ -809,13 +1291,14 @@ const IntentCard: React.FC<{
   title: string;
   description: string;
   systems?: string[];
+  wide?: boolean;
   onClick: () => void;
-}> = ({ icon: Icon, tint, title, description, systems, onClick }) => (
+}> = ({ icon: Icon, tint, title, description, systems, wide, onClick }) => (
   <button
     type="button"
     onClick={onClick}
     className={`card group relative cursor-pointer overflow-hidden border border-border p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md ${
-      systems ? "pb-10" : ""
+      wide ? "sm:col-span-2" : ""
     }`}
   >
     <div
@@ -829,19 +1312,98 @@ const IntentCard: React.FC<{
       <ArrowRight className="h-3 w-3" />
     </span>
     {systems && systems.length > 0 && (
-      <span className="absolute bottom-3 left-4 right-4 flex flex-wrap gap-1">
-        {systems.map((name, i) => (
-          <span
-            key={name}
-            className="bg-bg border-border text-primary-alpha translate-y-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
-            style={{ transitionDelay: `${i * 70}ms` }}
-          >
-            {name}
-          </span>
-        ))}
-      </span>
+      // Grows the card open on hover instead of overlaying fixed-height
+      // space — the pill count/wrap varies, so a fixed reserved padding
+      // would either clip extra rows or overlap the description above it.
+      <div className="grid grid-rows-[0fr] transition-all duration-300 group-hover:mt-2.5 group-hover:grid-rows-[1fr]">
+        <div className="flex flex-wrap gap-1 overflow-hidden">
+          {systems.map((name, i) => (
+            <span
+              key={name}
+              className="bg-bg border-border text-primary-alpha translate-y-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
+              style={{ transitionDelay: `${i * 70}ms` }}
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+      </div>
     )}
   </button>
+);
+
+const BuilderCard: React.FC<{
+  name: string;
+  department: string;
+  title: string;
+  updatedAt: string;
+  onClick: () => void;
+}> = ({ name, department, title, updatedAt, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="card group flex w-[260px] flex-col gap-2.5 border border-border p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+  >
+    <div className="flex items-center gap-2.5">
+      <span className="bg-primary-light text-primary dark:bg-primary/15 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold">
+        {getInitials(name)}
+      </span>
+      <div className="min-w-0 leading-tight">
+        <div className="text-primary-alpha truncate text-xs font-bold">
+          {name}
+        </div>
+        <div className="text-fade-2 truncate text-[11px] font-semibold">
+          {department}
+        </div>
+      </div>
+    </div>
+    <p className="text-primary-alpha line-clamp-2 text-xs font-semibold leading-snug">
+      {title}
+    </p>
+    <span className="text-fade-2 flex items-center gap-1 text-[11px] font-medium">
+      <Trophy className="h-3 w-3" />
+      {dayjs(updatedAt).fromNow()}
+    </span>
+  </button>
+);
+
+const NewsItemRow: React.FC<{
+  title: string;
+  snippet: string;
+  timeframe: string;
+  href: string;
+}> = ({ title, snippet, timeframe, href }) => (
+  <a
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="card group flex flex-col gap-1 border border-border p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+  >
+    <div className="flex items-center justify-between gap-2">
+      <h4 className="text-primary-alpha text-xs font-bold">{title}</h4>
+      <span className="text-fade-2 shrink-0 text-[10px] font-semibold uppercase tracking-wide">
+        {timeframe}
+      </span>
+    </div>
+    <p className="text-fade text-xs leading-snug">{snippet}</p>
+    <span className="text-primary mt-1 inline-flex items-center gap-1 text-[11px] font-bold group-hover:underline">
+      Read more
+      <ExternalLink className="h-3 w-3" />
+    </span>
+  </a>
+);
+
+const BackToMenuButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <div className="animate-fd-rise sm:ml-[46px]">
+    <button
+      type="button"
+      onClick={onClick}
+      className="border border-primary/30 hover:border-primary hover:bg-primary-light dark:hover:bg-primary/10 text-primary flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition-all hover:-translate-y-0.5 shadow-sm bg-bg"
+    >
+      <ArrowLeft className="h-3 w-3" />
+      Back to AI menu
+    </button>
+  </div>
 );
 
 const Chip: React.FC<{

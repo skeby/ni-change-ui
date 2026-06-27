@@ -140,6 +140,10 @@ const router = createBrowserRouter([
             lazy: lazyRoute(() => import("./pages/change-detail")),
           },
           {
+            path: "ideas",
+            lazy: lazyRoute(() => import("./pages/ideas")),
+          },
+          {
             path: "settings/categories",
             lazy: lazyRoute(() => import("./pages/settings-categories")),
           },

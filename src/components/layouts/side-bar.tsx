@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../state/store";
 import { Utils } from "../../utils";
 import { ChevronLeft, ChevronRight, LogOut } from "lucide-react";
-import { BiSolidDashboard } from "react-icons/bi";
+import { BiSolidDashboard, BiSolidBulb } from "react-icons/bi";
 import { BsClipboardCheckFill } from "react-icons/bs";
 import {
   FaCodeBranch,
@@ -99,7 +99,10 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
     {
       title: "Change Management",
       visible: isRole(["Admin"]),
-      items: [{ name: "All Changes", path: "/changes", icon: FaCodeBranch }],
+      items: [
+        { name: "All Changes", path: "/changes", icon: FaCodeBranch },
+        { name: "All Ideas", path: "/ideas", icon: BiSolidBulb },
+      ],
     },
     {
       title: "Settings",
@@ -128,7 +131,12 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
         collapsed ? "w-[68px]" : "w-60"
       }`}
     >
-      <div className="border-border relative z-10 flex h-[90px] shrink-0 items-center justify-center border-b px-5">
+      <div
+        className={Utils.cn(
+          "border-border relative z-10 flex h-[90px] shrink-0 items-center justify-center border-b",
+          collapsed ? "px-2" : "px-5",
+        )}
+      >
         <Link
           to="/"
           className={Utils.cn(
@@ -242,7 +250,12 @@ const SideBar: React.FC<SideBarProps> = ({ collapsed, setCollapsed }) => {
         )}
       </div>
 
-      <div className={Utils.cn("border-border relative z-10 shrink-0 border-t py-2", collapsed ? "px-3" : "px-4")}>
+      <div
+        className={Utils.cn(
+          "border-border relative z-10 shrink-0 border-t py-2",
+          collapsed ? "px-3" : "px-4",
+        )}
+      >
         <Tooltip title={collapsed ? "Logout" : undefined} placement="right">
           <button
             onClick={() => navigate("/login")}

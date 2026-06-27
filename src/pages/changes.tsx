@@ -1,19 +1,19 @@
-import React, { useState, useMemo } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
-import { Input, type TableProps, message } from "antd"
-import { AiOutlineSearch } from "react-icons/ai"
-import { FolderOpen } from "lucide-react"
-import { useAppSelector } from "../state/store"
+import React, { useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Input, type TableProps, message } from "antd";
+import { AiOutlineSearch } from "react-icons/ai";
+import { FolderOpen } from "lucide-react";
+import { useAppSelector } from "../state/store";
 import type {
   ChangeRequest,
   ChangeStatus,
-} from "../state/slices/changes-slice"
-import Tag from "../components/ui/tag"
-import { DataTable } from "../components/ui/data-table"
-import { TableFilter } from "../components/ui/table-filter"
-import { DataViewSwitcher } from "../components/ui/data-view-switcher"
-import { ChangeCard } from "../components/ui/change-card"
-import { Utils } from "../utils"
+} from "../state/slices/changes-slice";
+import Tag from "../components/ui/tag";
+import { DataTable } from "../components/ui/data-table";
+import { TableFilter } from "../components/ui/table-filter";
+import { DataViewSwitcher } from "../components/ui/data-view-switcher";
+import { ChangeCard } from "../components/ui/change-card";
+import { Utils } from "../utils";
 
 const ALL_STATUSES: ChangeStatus[] = [
   "Submitted",
@@ -27,65 +27,67 @@ const ALL_STATUSES: ChangeStatus[] = [
   "Post-Deployment Review",
   "Closed",
   "Rolled Back",
-]
+];
 
-const FILTER_KEYS = ["status", "riskLevel", "category", "system"]
+const FILTER_KEYS = ["status", "riskLevel", "category", "system"];
 
 export const Changes: React.FC = () => {
-  const navigate = useNavigate()
-  const { changes } = useAppSelector((state) => state.changes)
-  const { dataView } = useAppSelector((state) => state.app)
-  const { categories, riskLevels } = useAppSelector((state) => state.settings)
+  const navigate = useNavigate();
+  const { changes } = useAppSelector((state) => state.changes);
+  const { dataView } = useAppSelector((state) => state.app);
+  const { categories, riskLevels } = useAppSelector((state) => state.settings);
   const sortedRiskLevels = [...riskLevels].sort(
-    (a, b) => a.severity - b.severity
-  )
+    (a, b) => a.severity - b.severity,
+  );
   const riskSeverity = (name: string) =>
-    riskLevels.find((r) => r.name === name)?.severity ?? 0
+    riskLevels.find((r) => r.name === name)?.severity ?? 0;
 
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState("");
 
   // All non-draft changes across the org
   const orgChanges = useMemo(
     () => changes.filter((c) => c.status !== "Draft"),
-    [changes]
-  )
+    [changes],
+  );
 
   const activeFilters = useMemo(() => {
-    const filters: Record<string, (string | number)[]> = {}
+    const filters: Record<string, (string | number)[]> = {};
     FILTER_KEYS.forEach((key) => {
-      const val = searchParams.get(key)
-      if (val) filters[key] = val.split(",").filter(Boolean)
-    })
-    return filters
-  }, [searchParams])
+      const val = searchParams.get(key);
+      if (val) filters[key] = val.split(",").filter(Boolean);
+    });
+    return filters;
+  }, [searchParams]);
 
   const handleFilterChange = (
-    newFilters: Record<string, (string | number)[]>
+    newFilters: Record<string, (string | number)[]>,
   ) => {
-    const newParams = new URLSearchParams(searchParams)
+    const newParams = new URLSearchParams(searchParams);
     const hasAnySelection = FILTER_KEYS.some(
-      (key) => newFilters[key] && newFilters[key].length > 0
-    )
+      (key) => newFilters[key] && newFilters[key].length > 0,
+    );
     FILTER_KEYS.forEach((key) => {
-      const values = newFilters[key]
+      const values = newFilters[key];
       if (values && values.length > 0) {
-        newParams.set(key, values.join(","))
+        newParams.set(key, values.join(","));
       } else {
-        newParams.delete(key)
+        newParams.delete(key);
       }
-    })
-    newParams.delete("page")
-    setSearchParams(newParams)
+    });
+    newParams.delete("page");
+    setSearchParams(newParams);
     message.success(
-      hasAnySelection ? "Filters applied successfully" : "Filters cleared successfully"
-    )
-  }
+      hasAnySelection
+        ? "Filters applied successfully"
+        : "Filters cleared successfully",
+    );
+  };
 
   const filterFields = useMemo(() => {
     const systems = Array.from(
-      new Set(orgChanges.map((c) => c.systemAffected).filter(Boolean))
-    )
+      new Set(orgChanges.map((c) => c.systemAffected).filter(Boolean)),
+    );
     return [
       {
         label: "Status",
@@ -109,43 +111,46 @@ export const Changes: React.FC = () => {
         name: "system",
         values: systems.map((s) => ({ label: s, value: s })),
       },
-    ]
-  }, [orgChanges, categories, sortedRiskLevels])
+    ];
+  }, [orgChanges, categories, sortedRiskLevels]);
 
   const fullyFilteredChanges = useMemo(() => {
     return orgChanges.filter((c) => {
-      if (activeFilters.status?.length > 0 && !activeFilters.status.includes(c.status))
-        return false
+      if (
+        activeFilters.status?.length > 0 &&
+        !activeFilters.status.includes(c.status)
+      )
+        return false;
       if (
         activeFilters.riskLevel?.length > 0 &&
         !activeFilters.riskLevel.includes(c.riskLevel)
       )
-        return false
+        return false;
       if (
         activeFilters.category?.length > 0 &&
         !activeFilters.category.includes(c.category)
       )
-        return false
+        return false;
       if (
         activeFilters.system?.length > 0 &&
         !activeFilters.system.includes(c.systemAffected)
       )
-        return false
-      return true
-    })
-  }, [orgChanges, activeFilters])
+        return false;
+      return true;
+    });
+  }, [orgChanges, activeFilters]);
 
   const filteredChangesForCards = useMemo(() => {
-    if (!searchQuery) return fullyFilteredChanges
-    const q = searchQuery.toLowerCase()
+    if (!searchQuery) return fullyFilteredChanges;
+    const q = searchQuery.toLowerCase();
     return fullyFilteredChanges.filter(
       (c) =>
         c.id.toLowerCase().includes(q) ||
         c.title.toLowerCase().includes(q) ||
         c.submitterName.toLowerCase().includes(q) ||
-        c.systemAffected.toLowerCase().includes(q)
-    )
-  }, [fullyFilteredChanges, searchQuery])
+        c.systemAffected.toLowerCase().includes(q),
+    );
+  }, [fullyFilteredChanges, searchQuery]);
 
   const columns: TableProps<ChangeRequest>["columns"] = [
     {
@@ -267,7 +272,7 @@ export const Changes: React.FC = () => {
         </span>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
@@ -285,7 +290,9 @@ export const Changes: React.FC = () => {
                   placeholder="Search by ID, title, submitter..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  prefix={<AiOutlineSearch className="size-5! text-[#D0D0D2]" />}
+                  prefix={
+                    <AiOutlineSearch className="size-5! text-[#D0D0D2]" />
+                  }
                   className="h-11! w-full! rounded-lg! placeholder:text-sm! placeholder:tracking-tight! placeholder:text-[#D0D0D2]!"
                   allowClear
                 />
@@ -350,7 +357,7 @@ export const Changes: React.FC = () => {
         />
       )}
     </div>
-  )
-}
+  );
+};
 
-export default Changes
+export default Changes;

@@ -20,6 +20,7 @@ import appReducer from "./slices/app-slice";
 import changesReducer from "./slices/changes-slice";
 import settingsReducer from "./slices/settings-slice";
 import notificationsReducer from "./slices/notifications-slice";
+import aiIdeasReducer from "./slices/ai-ideas-slice";
 
 const localStorageEngine = {
   getItem: (key: string): Promise<string | null> => {
@@ -50,12 +51,13 @@ const rootReducer = combineReducers({
   changes: changesReducer,
   settings: settingsReducer,
   notifications: notificationsReducer,
+  aiIdeas: aiIdeasReducer,
 });
 
 const persistConfig = {
   key: "ni-change-v1",
   storage: localStorageEngine,
-  whitelist: ["auth", "changes", "settings", "app", "notifications"],
+  whitelist: ["auth", "changes", "settings", "app", "notifications", "aiIdeas"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

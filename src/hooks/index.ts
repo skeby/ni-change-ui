@@ -5,6 +5,7 @@ export const useAuth = () => useAppSelector((state) => state.auth)
 export const useChanges = () => useAppSelector((state) => state.changes)
 export const useSettings = () => useAppSelector((state) => state.settings)
 export const useNotifications = () => useAppSelector((state) => state.notifications)
+export const useAIIdeas = () => useAppSelector((state) => state.aiIdeas)
 
 export { useTheme } from "./use-theme"
 
