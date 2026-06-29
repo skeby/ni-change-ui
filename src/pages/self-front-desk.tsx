@@ -89,6 +89,7 @@ const CHANGE_TYPES = [
 
 // Not yet wired up to a real destination — use NI's site as a stand-in link.
 const PLACEHOLDER_LINK = "https://nutritionintl.org";
+const ABSORB_LMS_LINK = "https://lms.nutritionintl.org";
 const AI_WORKSPACE_LINK = "https://ni-ai-workspace.vercel.app";
 
 const SHIPPED_BUILD_STATUSES = ["Deployed", "Post-Deployment Review", "Closed"];
@@ -132,7 +133,7 @@ const EXTERNAL_AI_LINKS: Record<
   absorb: {
     icon: GraduationCap,
     blurb: "Build your AI skills with courses on Absorb.",
-    href: PLACEHOLDER_LINK,
+    href: ABSORB_LMS_LINK,
     cta: "Browse AI courses",
   },
   workspace: {
