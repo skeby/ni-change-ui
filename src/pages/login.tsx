@@ -1,53 +1,53 @@
-import React, { useState } from "react"
-import { useNavigate } from "react-router-dom"
-import { useAppDispatch, useAppSelector } from "../state/store"
-import { Button, Checkbox } from "antd"
-import { setCurrentUser, setActiveRoles } from "../state/slices/auth-slice"
-import { ShieldCheck, ArrowRight } from "lucide-react"
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../state/store";
+import { Button, Checkbox } from "antd";
+import { setCurrentUser, setActiveRoles } from "../state/slices/auth-slice";
+import { ShieldCheck, ArrowRight } from "lucide-react";
 
 export const Login: React.FC = () => {
-  const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const { users } = useAppSelector((state) => state.auth)
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { users } = useAppSelector((state) => state.auth);
 
   const [selectedUserId, setSelectedUserId] = useState<string>(
-    "adeyinka@company.com"
-  )
+    "adeyinka@company.com",
+  );
   const [selectedRoles, setSelectedRoles] = useState<string[]>([
     "Requester",
     "Approver",
     "Tester",
     "Admin",
-  ])
+  ]);
 
-  const activeProfile = users.find((u) => u.id === selectedUserId) || users[0]
+  const activeProfile = users.find((u) => u.id === selectedUserId) || users[0];
 
   const handleUserSelect = (userId: string) => {
-    setSelectedUserId(userId)
-    const user = users.find((u) => u.id === userId)
+    setSelectedUserId(userId);
+    const user = users.find((u) => u.id === userId);
     if (user) {
-      setSelectedRoles([...user.baseRoles])
+      setSelectedRoles([...user.baseRoles]);
     }
-  }
+  };
 
   const handleRoleToggle = (role: string) => {
     if (selectedRoles.includes(role)) {
       if (selectedRoles.length > 1) {
-        setSelectedRoles(selectedRoles.filter((r) => r !== role))
+        setSelectedRoles(selectedRoles.filter((r) => r !== role));
       }
     } else {
-      setSelectedRoles([...selectedRoles, role])
+      setSelectedRoles([...selectedRoles, role]);
     }
-  }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    dispatch(setCurrentUser(selectedUserId))
-    dispatch(setActiveRoles(selectedRoles))
-    navigate("/")
-  }
+    e.preventDefault();
+    dispatch(setCurrentUser(selectedUserId));
+    dispatch(setActiveRoles(selectedRoles));
+    navigate("/");
+  };
 
-  const allRoles = ["Requester", "Approver", "Tester", "Admin"]
+  const allRoles = ["Requester", "Approver", "Tester", "Admin"];
 
   return (
     <div className="bg-background-primary relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-6">
@@ -63,14 +63,12 @@ export const Login: React.FC = () => {
             <div className="rounded-xl bg-white/20 p-2 backdrop-blur-md">
               <ShieldCheck className="h-6 w-6" />
             </div>
-            <span className="text-h2 font-extrabold tracking-tight">
-              NI Change
-            </span>
+            <span className="text-h2 font-extrabold tracking-tight">NI AI</span>
           </div>
 
           <div className="space-y-4">
             <h2 className="text-display-md leading-tight font-bold tracking-tight">
-              Change Management Portal
+              AI Sharepoint
             </h2>
             <p className="text-body-sm font-light text-red-100">
               Submit change requests, manage approvals, coordinate testing, and
@@ -101,7 +99,7 @@ export const Login: React.FC = () => {
             {/* Profile Grid */}
             <div className="mb-6 grid grid-cols-2 gap-3">
               {users.map((u) => {
-                const isSelected = u.id === selectedUserId
+                const isSelected = u.id === selectedUserId;
                 return (
                   <button
                     key={u.id}
@@ -123,7 +121,7 @@ export const Login: React.FC = () => {
                       {u.email}
                     </div>
                   </button>
-                )
+                );
               })}
             </div>
 
@@ -140,8 +138,8 @@ export const Login: React.FC = () => {
 
               <div className="bg-bg-muted border-border-muted grid grid-cols-2 gap-2 rounded-2xl border p-3">
                 {allRoles.map((role) => {
-                  const isBase = activeProfile.baseRoles.includes(role)
-                  const isChecked = selectedRoles.includes(role)
+                  const isBase = activeProfile.baseRoles.includes(role);
+                  const isChecked = selectedRoles.includes(role);
 
                   return (
                     <button
@@ -165,7 +163,7 @@ export const Login: React.FC = () => {
                         </span>
                       )}
                     </button>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -188,7 +186,7 @@ export const Login: React.FC = () => {
         profile dropdown menu at any time during your review.
       </p>
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;
