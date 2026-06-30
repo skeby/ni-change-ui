@@ -100,7 +100,8 @@ const initialState: SettingsState = {
     {
       id: "sys-2",
       name: "Board",
-      description: "Enterprise performance management and reporting platform",
+      description:
+        "Financial Planning & Analysis (FP&A) - budgeting, forecasting, and variance analysis",
       active: true,
       logo: faviconUrl("board.com"),
     },
